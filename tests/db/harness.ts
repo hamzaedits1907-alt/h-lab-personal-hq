@@ -76,7 +76,7 @@ export async function createUsers(db: PGlite): Promise<void> {
     insert into auth.users (id, email) values
       ('${ADMIN_ID}', 'owner@example.com'),
       ('${USER_ID}', 'stranger@example.com');
-    insert into public.admins (user_id) values ('${ADMIN_ID}');
+    insert into public.hlab_admins (user_id) values ('${ADMIN_ID}');
   `);
 }
 

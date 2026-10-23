@@ -34,7 +34,7 @@ function fakeClient(tables: Record<string, Result>, rpc: Record<string, Result> 
     },
     storage: {
       from: () => ({
-        getPublicUrl: (p: string) => ({ data: { publicUrl: `https://abc.supabase.co/storage/v1/object/public/site-media/${p}` } }),
+        getPublicUrl: (p: string) => ({ data: { publicUrl: `https://abc.supabase.co/storage/v1/object/public/hlab-media/${p}` } }),
         remove: () => Promise.resolve({ data: [], error: null }),
       }),
     },
@@ -71,8 +71,8 @@ const settingsRow = {
 describe('SupabaseRepository.loadSite', () => {
   it('maps rows, tolerates bad stored values, and keeps invalid blocks aside', async () => {
     const { client } = fakeClient({
-      site_settings: { data: settingsRow, error: null },
-      content_blocks: {
+      hlab_site_settings: { data: settingsRow, error: null },
+      hlab_content_blocks: {
         data: [
           { id: 'b1', type: 'text', anchor: 'a', admin_label: 'A', content: { heading: { en: 'Hi' } }, position: 1, is_visible: true, created_at: '', updated_at: '' },
           { id: 'b2', type: 'gallery', anchor: 'g', admin_label: 'G', content: { images: [{ mediaId: 'nope' }] }, position: 2, is_visible: true, created_at: '', updated_at: '' },
@@ -80,13 +80,13 @@ describe('SupabaseRepository.loadSite', () => {
         ],
         error: null,
       },
-      projects: {
+      hlab_projects: {
         data: [{ id: 'p1', slug: 's', title: 'T', summary: { en: 'x' }, description: {}, status: 'bogus', tags: null, url: null, cover_media_id: null, position: 1, is_visible: true, created_at: '', updated_at: '' }],
         error: null,
       },
-      media: { data: [], error: null },
+      hlab_media: { data: [], error: null },
     });
-    const site = await new SupabaseRepository(client, 'site-media').loadSite();
+    const site = await new SupabaseRepository(client, 'hlab-media').loadSite();
     expect(site.blocks.map((b) => b.id)).toEqual(['b1']);
     expect(site.invalidBlocks.map((b) => b.id)).toEqual(['b2', 'b3']);
     // bad appearance value falls back to a safe default rather than reaching CSS
@@ -96,26 +96,26 @@ describe('SupabaseRepository.loadSite', () => {
   });
 
   it('reports "no settings row" as null instead of inventing starter data', async () => {
-    const { client } = fakeClient({ site_settings: { data: null, error: null } });
+    const { client } = fakeClient({ hlab_site_settings: { data: null, error: null } });
     expect((await new SupabaseRepository(client).loadSite()).settings).toBeNull();
   });
 
   it('throws a network AppError when the database is unreachable', async () => {
-    const { client } = fakeClient({ site_settings: { data: null, error: { message: 'TypeError: Failed to fetch' } } });
+    const { client } = fakeClient({ hlab_site_settings: { data: null, error: { message: 'TypeError: Failed to fetch' } } });
     await expect(new SupabaseRepository(client).loadSite()).rejects.toMatchObject({ code: 'network' });
   });
 
   it('builds public image URLs from the bucket', () => {
     const { client } = fakeClient({});
     expect(new SupabaseRepository(client).mediaUrl({ storagePath: 'uploads/a.webp' })).toBe(
-      'https://abc.supabase.co/storage/v1/object/public/site-media/uploads/a.webp',
+      'https://abc.supabase.co/storage/v1/object/public/hlab-media/uploads/a.webp',
     );
   });
 });
 
 describe('SupabaseRepository writes never report success on failure', () => {
   it('turns "zero rows updated" (RLS denial) into an error', async () => {
-    const { client } = fakeClient({ site_settings: { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } } });
+    const { client } = fakeClient({ hlab_site_settings: { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } } });
     await expect(new SupabaseRepository(client).saveSettings({ ...seedSettings })).rejects.toMatchObject({ code: 'unauthorized' });
   });
 
@@ -127,13 +127,13 @@ describe('SupabaseRepository writes never report success on failure', () => {
   });
 
   it('refuses to delete an image that is still referenced, without calling delete', async () => {
-    const { client, calls } = fakeClient({}, { media_usage: { data: [{ kind: 'project', ref_id: 'p', label: 'Proj' }], error: null } });
+    const { client, calls } = fakeClient({}, { hlab_media_usage: { data: [{ kind: 'project', ref_id: 'p', label: 'Proj' }], error: null } });
     await expect(new SupabaseRepository(client).deleteMedia('m')).rejects.toBeInstanceOf(MediaInUseError);
-    expect(calls).not.toContain('rpc:delete_media');
+    expect(calls).not.toContain('rpc:hlab_delete_media');
   });
 
   it('treats a delete that removed nothing as a failure', async () => {
-    const { client } = fakeClient({ projects: { data: [], error: null } });
+    const { client } = fakeClient({ hlab_projects: { data: [], error: null } });
     await expect(new SupabaseRepository(client).deleteProject('p')).rejects.toMatchObject({ code: 'unauthorized' });
   });
 });

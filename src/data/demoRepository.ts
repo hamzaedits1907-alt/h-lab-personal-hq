@@ -23,6 +23,7 @@ import type { AuthState, Repository } from './repository';
 import {
   MEDIA_EXTENSIONS,
   parse,
+  onlyProvided,
   validateBlockPatch,
   validateMediaUpload,
   validateNewBlock,
@@ -347,7 +348,7 @@ export class DemoRepository implements Repository {
 
   async updateProject(id: string, patch: Partial<ProjectInput>): Promise<Project> {
     this.requireAdmin();
-    const v = parse(projectInputSchema.partial(), patch, 'The project');
+    const v = onlyProvided(parse(projectInputSchema.partial(), patch, 'The project'), patch);
     const s = this.load();
     const i = s.projects.findIndex((p) => p.id === id);
     const existing = s.projects[i];

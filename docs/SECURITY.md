@@ -6,22 +6,22 @@ One owner, no public accounts. Authorization is enforced **in the database** (Ro
 
 | Actor | Can |
 | --- | --- |
-| Anonymous visitor | Read published projects/blocks, settings, media metadata. Nothing else: no writes, no `admins`, no `change_log`, no RPCs, no storage listing. |
-| Signed-in, **not** in `admins` | Exactly the same as a visitor. `UPDATE`/`DELETE` affect zero rows, `INSERT` is rejected, RPCs raise `not authorized`, storage writes are rejected. |
-| Admin (`public.admins` row) | Read everything, write projects/blocks/media/settings, upload/replace/delete in the `site-media` bucket, read `change_log`. Still cannot insert/delete the settings singleton or modify `admins` through the API. |
+| Anonymous visitor | Read published projects/blocks, settings, media metadata. Nothing else: no writes, no `hlab_admins`, no `hlab_change_log`, no RPCs, no storage listing. |
+| Signed-in, **not** in `hlab_admins` | Exactly the same as a visitor. `UPDATE`/`DELETE` affect zero rows, `INSERT` is rejected, RPCs raise `not authorized`, storage writes are rejected. |
+| Admin (`public.hlab_admins` row) | Read everything, write projects/blocks/media/settings, upload/replace/delete in the `hlab-media` bucket, read `hlab_change_log`. Still cannot insert/delete the settings singleton or modify `hlab_admins` through the API. |
 
 These rules are exercised against the real migrations in `tests/db/policies.test.ts` (35 tests).
 
 ## Admin identity
 
-- `public.admins(user_id)` is separate from any profile data. Clients may `SELECT` only their own row. There is **no** INSERT/UPDATE/DELETE grant or policy, so nobody can promote themselves.
+- `public.hlab_admins(user_id)` is separate from any profile data. Clients may `SELECT` only their own row. There is **no** INSERT/UPDATE/DELETE grant or policy, so nobody can promote themselves.
 - The first admin is created by the owner in the Supabase SQL editor (runs with elevated rights, outside the API). See ADMIN_GUIDE.md.
-- `is_admin()` is `SECURITY DEFINER` with `search_path = ''`, and checks `auth.uid()`.
+- `hlab_is_admin()` is `SECURITY DEFINER` with `search_path = ''`, and checks `auth.uid()`.
 - Disable public sign-ups in Supabase anyway. If a stranger did register, they would be an ordinary authenticated user (see table) and the admin route would show "Not authorized".
 
-## Dedicated Supabase project
+## Sharing a Supabase project with another app
 
-Run H/LAB in its own Supabase project. Its migrations use generic names in `public` (including `is_admin()`), which another application may already use in its own policies. `0001` aborts without changing anything if those names exist, `0002` never modifies an existing bucket, and `0004` refuses to alter a `projects` table that is not H/LAB's (all covered by `tests/db/isolation.test.ts`). A shared project would also share Auth settings such as sign-up.
+All H/LAB objects are namespaced (`hlab_*` tables/functions/indexes/triggers, `hlab: ` policies, `hlab-media` bucket) and admin rights come from `public.hlab_admins` / `hlab_is_admin()`, so another app's `hlab_is_admin()`, `profiles`, buckets and admin roles are neither used nor modified, and an admin of the other app has no H/LAB rights (and vice versa). Media metadata is public only while something published references it; unreferenced or hidden uploads are visible to admins only. H/LAB changes no auth settings. Note that Supabase Auth users are shared project-wide, so anyone who can sign up to the other app has an account, but without a `hlab_admins` row they are an ordinary visitor. All covered by `tests/db/isolation.test.ts`.
 
 ## Secrets
 
@@ -32,7 +32,7 @@ Run H/LAB in its own Supabase project. Its migrations use generic names in `publ
 
 ## Storage
 
-Bucket `site-media`: public by URL (so `<img>` works), 5 MB limit, MIME allow-list jpeg/png/webp/avif (**no SVG**, which can carry script). No anonymous `SELECT` policy → the bucket cannot be listed. Insert/update/delete/select policies require `is_admin()` **and** `bucket_id = 'site-media'`. File names are server-generated (`uploads/<random uuid>.<ext>`); user-supplied names are never used. The client additionally checks magic bytes so a renamed text/SVG file is rejected before upload. Everything uploaded is publicly retrievable by URL, so don't upload private images.
+Bucket `hlab-media`: public by URL (so `<img>` works), 5 MB limit, MIME allow-list jpeg/png/webp/avif (**no SVG**, which can carry script). No anonymous `SELECT` policy → the bucket cannot be listed. Insert/update/delete/select policies require `hlab_is_admin()` **and** `bucket_id = 'hlab-media'`. File names are server-generated (`uploads/<random uuid>.<ext>`); user-supplied names are never used. The client additionally checks magic bytes so a renamed text/SVG file is rejected before upload. Everything uploaded is publicly retrievable by URL, so don't upload private images.
 
 ## Content safety (XSS)
 

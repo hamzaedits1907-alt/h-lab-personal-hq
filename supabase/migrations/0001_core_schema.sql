@@ -4,10 +4,12 @@
 -- privileges and are granted only what the app needs. Row-Level Security is the
 -- real gate; the admin UI merely reflects it.
 --
--- USE A DEDICATED SUPABASE PROJECT. This file creates generically named objects in
--- the `public` schema (projects, media, admins, site_settings, is_admin()...).
--- The guard below aborts, before changing anything, if any of those names already
--- exist, so it can never overwrite or alter another application's tables/functions.
+-- SHARED-PROJECT SAFE. Every object H/LAB creates is prefixed `hlab_` (tables, functions,
+-- indexes, triggers) or `hlab:` (policies) or `hlab-media` (storage bucket), and admin rights
+-- come from `hlab_admins` / `hlab_is_admin()`, independent of any other application's admin
+-- tables. The guard below aborts, before changing anything, if any of those names already
+-- exist, so it can never overwrite or alter another application's objects. Nothing here
+-- touches auth settings, other tables, other functions or other buckets.
 
 do $guard$
 begin
@@ -16,17 +18,17 @@ begin
          from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public'
           and c.relkind in ('r', 'p', 'v', 'm', 'f')
-          and c.relname in ('admins', 'media', 'site_settings', 'content_blocks', 'projects', 'change_log')
+          and c.relname in ('hlab_admins', 'hlab_media', 'hlab_site_settings', 'hlab_content_blocks', 'hlab_projects', 'hlab_change_log')
      )
      or exists (
        select 1
          from pg_proc p join pg_namespace n on n.oid = p.pronamespace
         where n.nspname = 'public'
-          and p.proname in ('is_admin', 'set_updated_at', 'text_array_ok', 'block_content_valid', 'log_change',
-                            'reorder_projects', 'reorder_blocks', 'media_usage', 'delete_media')
+          and p.proname in ('hlab_is_admin', 'hlab_set_updated_at', 'hlab_text_array_ok', 'hlab_block_content_valid', 'hlab_log_change',
+                            'hlab_reorder_projects', 'hlab_reorder_blocks', 'hlab_media_usage', 'hlab_delete_media')
      )
   then
-    raise exception 'H/LAB migration aborted: this database already has tables or functions with the same names in the public schema (another project, or this migration already ran). Nothing was changed. Use a dedicated Supabase project for H/LAB.'
+    raise exception 'H/LAB migration aborted: this database already has tables or functions with the same names in the public schema (this migration already ran, or the names are taken). Nothing was changed.'
       using errcode = '42710';
   end if;
 end
@@ -36,7 +38,7 @@ $guard$;
 -- Helpers
 -- ---------------------------------------------------------------------------
 
-create or replace function public.set_updated_at()
+create or replace function public.hlab_set_updated_at()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -49,7 +51,7 @@ $$;
 
 -- true when every element is a non-empty string no longer than p_max_len and
 -- the array has at most p_max_items elements.
-create or replace function public.text_array_ok(p_arr text[], p_max_items int, p_max_len int)
+create or replace function public.hlab_text_array_ok(p_arr text[], p_max_items int, p_max_len int)
 returns boolean
 language sql
 immutable
@@ -69,38 +71,38 @@ $$;
 -- owner in the SQL editor (see docs/ADMIN_GUIDE.md).
 -- ---------------------------------------------------------------------------
 
-create table public.admins (
+create table public.hlab_admins (
   user_id    uuid primary key references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
 
-alter table public.admins enable row level security;
+alter table public.hlab_admins enable row level security;
 
-revoke all on public.admins from anon, authenticated;
-grant select on public.admins to authenticated;
+revoke all on public.hlab_admins from anon, authenticated;
+grant select on public.hlab_admins to authenticated;
 
-create policy "admins can read their own row"
-  on public.admins for select to authenticated
+create policy "hlab: admins can read their own row"
+  on public.hlab_admins for select to authenticated
   using (user_id = (select auth.uid()));
 
-create or replace function public.is_admin()
+create or replace function public.hlab_is_admin()
 returns boolean
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select exists (select 1 from public.admins where user_id = (select auth.uid()));
+  select exists (select 1 from public.hlab_admins where user_id = (select auth.uid()));
 $$;
 
-revoke all on function public.is_admin() from public;
-grant execute on function public.is_admin() to anon, authenticated;
+revoke all on function public.hlab_is_admin() from public;
+grant execute on function public.hlab_is_admin() to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Media metadata (files live in the `site-media` storage bucket, see 0002)
+-- Media metadata (files live in the `hlab-media` storage bucket, see 0002)
 -- ---------------------------------------------------------------------------
 
-create table public.media (
+create table public.hlab_media (
   id           uuid primary key default gen_random_uuid(),
   storage_path text not null unique
                check (storage_path ~ '^[a-z0-9][a-z0-9/_.-]{2,198}$' and storage_path !~ '\.\.'),
@@ -115,14 +117,14 @@ create table public.media (
   updated_at   timestamptz not null default now()
 );
 
-create trigger media_set_updated_at before update on public.media
-  for each row execute function public.set_updated_at();
+create trigger hlab_media_set_updated_at before update on public.hlab_media
+  for each row execute function public.hlab_set_updated_at();
 
 -- ---------------------------------------------------------------------------
 -- Site settings (singleton row, id = 1)
 -- ---------------------------------------------------------------------------
 
-create table public.site_settings (
+create table public.hlab_site_settings (
   id               smallint primary key default 1 check (id = 1),
   site_name        text not null default 'H/LAB' check (char_length(btrim(site_name)) between 1 and 80),
   brand_text       text not null default 'H/LAB' check (char_length(btrim(brand_text)) between 1 and 24),
@@ -148,21 +150,21 @@ create table public.site_settings (
   theme            text not null default 'dark' check (theme in ('dark', 'black', 'light')),
   background       text not null default 'orbits' check (background in ('orbits', 'grid', 'plain')),
   animation        text not null default 'full' check (animation in ('full', 'subtle', 'off')),
-  profile_media_id uuid references public.media (id) on delete restrict,
-  og_media_id      uuid references public.media (id) on delete restrict,
+  profile_media_id uuid references public.hlab_media (id) on delete restrict,
+  og_media_id      uuid references public.hlab_media (id) on delete restrict,
   updated_at       timestamptz not null default now(),
   constraint default_language_enabled check (default_language = any (languages))
 );
 
-create trigger site_settings_set_updated_at before update on public.site_settings
-  for each row execute function public.set_updated_at();
+create trigger hlab_site_settings_set_updated_at before update on public.hlab_site_settings
+  for each row execute function public.hlab_set_updated_at();
 
 -- ---------------------------------------------------------------------------
 -- Page blocks (hero, project grid, about, ...). `content` is jsonb validated
 -- in depth by the app (Zod, on write and again on read) and structurally here.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.block_content_valid(p_type text, p_content jsonb)
+create or replace function public.hlab_block_content_valid(p_type text, p_content jsonb)
 returns boolean
 language sql
 immutable
@@ -183,29 +185,29 @@ as $$
           end)) = '{}'::jsonb;
 $$;
 
-create table public.content_blocks (
+create table public.hlab_content_blocks (
   id          uuid primary key default gen_random_uuid(),
   type        text not null
               check (type in ('hero', 'projects', 'about', 'tags', 'exploring', 'gallery', 'contact', 'text')),
   anchor      text not null unique check (anchor ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(anchor) <= 48),
   admin_label text not null check (char_length(btrim(admin_label)) between 1 and 80),
-  content     jsonb not null default '{}'::jsonb check (public.block_content_valid(type, content)),
+  content     jsonb not null default '{}'::jsonb check (public.hlab_block_content_valid(type, content)),
   position    integer not null default 0,
   is_visible  boolean not null default true,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
-create index content_blocks_position_idx on public.content_blocks (position, created_at);
+create index hlab_content_blocks_position_idx on public.hlab_content_blocks (position, created_at);
 
-create trigger content_blocks_set_updated_at before update on public.content_blocks
-  for each row execute function public.set_updated_at();
+create trigger hlab_content_blocks_set_updated_at before update on public.hlab_content_blocks
+  for each row execute function public.hlab_set_updated_at();
 
 -- ---------------------------------------------------------------------------
 -- Projects
 -- ---------------------------------------------------------------------------
 
-create table public.projects (
+create table public.hlab_projects (
   id             uuid primary key default gen_random_uuid(),
   slug           text not null unique check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(slug) <= 64),
   title          text not null check (char_length(btrim(title)) between 1 and 80),
@@ -214,27 +216,27 @@ create table public.projects (
   description    jsonb not null default '{}'::jsonb
                  check (jsonb_typeof(description) = 'object' and pg_column_size(description) <= 8192),
   status         text not null default 'active' check (status in ('active', 'experiment', 'paused', 'completed')),
-  tags           text[] not null default '{}' check (public.text_array_ok(tags, 12, 30)),
+  tags           text[] not null default '{}' check (public.hlab_text_array_ok(tags, 12, 30)),
   url            text check (url is null or (url ~ '^https://[^[:space:]]+$' and char_length(url) <= 500)),
-  cover_media_id uuid references public.media (id) on delete restrict,
+  cover_media_id uuid references public.hlab_media (id) on delete restrict,
   position       integer not null default 0,
   is_visible     boolean not null default true,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
 
-create index projects_position_idx on public.projects (position, created_at);
-create index projects_visible_idx on public.projects (is_visible, position);
-create index projects_cover_media_idx on public.projects (cover_media_id) where cover_media_id is not null;
+create index hlab_projects_position_idx on public.hlab_projects (position, created_at);
+create index hlab_projects_visible_idx on public.hlab_projects (is_visible, position);
+create index hlab_projects_cover_media_idx on public.hlab_projects (cover_media_id) where cover_media_id is not null;
 
-create trigger projects_set_updated_at before update on public.projects
-  for each row execute function public.set_updated_at();
+create trigger hlab_projects_set_updated_at before update on public.hlab_projects
+  for each row execute function public.hlab_set_updated_at();
 
 -- ---------------------------------------------------------------------------
 -- Change log (private). Written only by trigger; readable only by admins.
 -- ---------------------------------------------------------------------------
 
-create table public.change_log (
+create table public.hlab_change_log (
   id         bigint generated always as identity primary key,
   table_name text not null,
   row_id     text,
@@ -244,9 +246,9 @@ create table public.change_log (
   at         timestamptz not null default now()
 );
 
-create index change_log_at_idx on public.change_log (at desc);
+create index hlab_change_log_at_idx on public.hlab_change_log (at desc);
 
-create or replace function public.log_change()
+create or replace function public.hlab_log_change()
 returns trigger
 language plpgsql
 security definer
@@ -257,7 +259,7 @@ declare
 begin
   j := to_jsonb(case when tg_op = 'DELETE' then old else new end);
 
-  insert into public.change_log (table_name, row_id, action, summary, actor)
+  insert into public.hlab_change_log (table_name, row_id, action, summary, actor)
   values (
     tg_table_name,
     j ->> 'id',
@@ -267,109 +269,116 @@ begin
   );
 
   -- keep the log small
-  delete from public.change_log
-  where id <= (select coalesce(max(id), 0) from public.change_log) - 500;
+  delete from public.hlab_change_log
+  where id <= (select coalesce(max(id), 0) from public.hlab_change_log) - 500;
 
   return null;
 end;
 $$;
 
-revoke all on function public.log_change() from public, anon, authenticated;
+revoke all on function public.hlab_log_change() from public, anon, authenticated;
 
-create trigger projects_log after insert or update or delete on public.projects
-  for each row execute function public.log_change();
-create trigger content_blocks_log after insert or update or delete on public.content_blocks
-  for each row execute function public.log_change();
-create trigger media_log after insert or update or delete on public.media
-  for each row execute function public.log_change();
-create trigger site_settings_log after update on public.site_settings
-  for each row execute function public.log_change();
+create trigger hlab_projects_log after insert or update or delete on public.hlab_projects
+  for each row execute function public.hlab_log_change();
+create trigger hlab_content_blocks_log after insert or update or delete on public.hlab_content_blocks
+  for each row execute function public.hlab_log_change();
+create trigger hlab_media_log after insert or update or delete on public.hlab_media
+  for each row execute function public.hlab_log_change();
+create trigger hlab_site_settings_log after update on public.hlab_site_settings
+  for each row execute function public.hlab_log_change();
 
 -- ---------------------------------------------------------------------------
 -- Row-Level Security + grants
 -- ---------------------------------------------------------------------------
 
-alter table public.media          enable row level security;
-alter table public.site_settings  enable row level security;
-alter table public.content_blocks enable row level security;
-alter table public.projects       enable row level security;
-alter table public.change_log     enable row level security;
+alter table public.hlab_media          enable row level security;
+alter table public.hlab_site_settings  enable row level security;
+alter table public.hlab_content_blocks enable row level security;
+alter table public.hlab_projects       enable row level security;
+alter table public.hlab_change_log     enable row level security;
 
-revoke all on public.media, public.site_settings, public.content_blocks, public.projects, public.change_log
+revoke all on public.hlab_media, public.hlab_site_settings, public.hlab_content_blocks, public.hlab_projects, public.hlab_change_log
   from anon, authenticated;
 
 -- Public reads
-grant select on public.media, public.site_settings, public.content_blocks, public.projects to anon, authenticated;
+grant select on public.hlab_media, public.hlab_site_settings, public.hlab_content_blocks, public.hlab_projects to anon, authenticated;
 -- Admin writes (still gated by is_admin() in the policies below)
-grant insert, update, delete on public.media, public.content_blocks, public.projects to authenticated;
-grant update on public.site_settings to authenticated;
-grant select on public.change_log to authenticated;
+grant insert, update, delete on public.hlab_media, public.hlab_content_blocks, public.hlab_projects to authenticated;
+grant update on public.hlab_site_settings to authenticated;
+grant select on public.hlab_change_log to authenticated;
 
--- media: file metadata is public (files in the bucket are public by URL anyway)
-create policy "media is publicly readable" on public.media for select to anon, authenticated using (true);
-create policy "admins insert media" on public.media for insert to authenticated with check (public.is_admin());
-create policy "admins update media" on public.media for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
-create policy "admins delete media" on public.media for delete to authenticated using (public.is_admin());
+-- media: visitors can read a file's metadata only while something PUBLISHED references it
+-- (a visible project cover, a visible block, or the site settings). Unreferenced or
+-- hidden uploads stay private to admins.
+create policy "hlab: published media is public" on public.hlab_media for select to anon, authenticated using (
+  exists (select 1 from public.hlab_projects p where p.cover_media_id = hlab_media.id and p.is_visible)
+  or exists (select 1 from public.hlab_site_settings s where s.profile_media_id = hlab_media.id or s.og_media_id = hlab_media.id)
+  or exists (select 1 from public.hlab_content_blocks b where b.is_visible and position(hlab_media.id::text in b.content::text) > 0)
+);
+create policy "hlab: admins read all media" on public.hlab_media for select to authenticated using (public.hlab_is_admin());
+create policy "hlab: admins insert media" on public.hlab_media for insert to authenticated with check (public.hlab_is_admin());
+create policy "hlab: admins update media" on public.hlab_media for update to authenticated
+  using (public.hlab_is_admin()) with check (public.hlab_is_admin());
+create policy "hlab: admins delete media" on public.hlab_media for delete to authenticated using (public.hlab_is_admin());
 
 -- site_settings: readable by everyone (contains only public site config); only admins update; no insert/delete.
-create policy "settings are publicly readable" on public.site_settings for select to anon, authenticated using (true);
-create policy "admins update settings" on public.site_settings for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
+create policy "hlab: settings are publicly readable" on public.hlab_site_settings for select to anon, authenticated using (true);
+create policy "hlab: admins update settings" on public.hlab_site_settings for update to authenticated
+  using (public.hlab_is_admin()) with check (public.hlab_is_admin());
 
 -- content_blocks: visitors see visible blocks; admins see and change everything
-create policy "visible blocks are public" on public.content_blocks for select to anon, authenticated
+create policy "hlab: visible blocks are public" on public.hlab_content_blocks for select to anon, authenticated
   using (is_visible);
-create policy "admins read all blocks" on public.content_blocks for select to authenticated using (public.is_admin());
-create policy "admins insert blocks" on public.content_blocks for insert to authenticated with check (public.is_admin());
-create policy "admins update blocks" on public.content_blocks for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
-create policy "admins delete blocks" on public.content_blocks for delete to authenticated using (public.is_admin());
+create policy "hlab: admins read all blocks" on public.hlab_content_blocks for select to authenticated using (public.hlab_is_admin());
+create policy "hlab: admins insert blocks" on public.hlab_content_blocks for insert to authenticated with check (public.hlab_is_admin());
+create policy "hlab: admins update blocks" on public.hlab_content_blocks for update to authenticated
+  using (public.hlab_is_admin()) with check (public.hlab_is_admin());
+create policy "hlab: admins delete blocks" on public.hlab_content_blocks for delete to authenticated using (public.hlab_is_admin());
 
 -- projects: same shape as blocks
-create policy "visible projects are public" on public.projects for select to anon, authenticated
+create policy "hlab: visible projects are public" on public.hlab_projects for select to anon, authenticated
   using (is_visible);
-create policy "admins read all projects" on public.projects for select to authenticated using (public.is_admin());
-create policy "admins insert projects" on public.projects for insert to authenticated with check (public.is_admin());
-create policy "admins update projects" on public.projects for update to authenticated
-  using (public.is_admin()) with check (public.is_admin());
-create policy "admins delete projects" on public.projects for delete to authenticated using (public.is_admin());
+create policy "hlab: admins read all projects" on public.hlab_projects for select to authenticated using (public.hlab_is_admin());
+create policy "hlab: admins insert projects" on public.hlab_projects for insert to authenticated with check (public.hlab_is_admin());
+create policy "hlab: admins update projects" on public.hlab_projects for update to authenticated
+  using (public.hlab_is_admin()) with check (public.hlab_is_admin());
+create policy "hlab: admins delete projects" on public.hlab_projects for delete to authenticated using (public.hlab_is_admin());
 
 -- change_log: admins read only
-create policy "admins read change log" on public.change_log for select to authenticated using (public.is_admin());
+create policy "hlab: admins read change log" on public.hlab_change_log for select to authenticated using (public.hlab_is_admin());
 
 -- ---------------------------------------------------------------------------
 -- RPCs (SECURITY INVOKER: they run with the caller's rights, so RLS still applies)
 -- ---------------------------------------------------------------------------
 
-create or replace function public.reorder_projects(p_ids uuid[])
+create or replace function public.hlab_reorder_projects(p_ids uuid[])
 returns void
 language plpgsql
 security invoker
 set search_path = ''
 as $$
 begin
-  if not public.is_admin() then
+  if not public.hlab_is_admin() then
     raise exception 'not authorized' using errcode = '42501';
   end if;
-  update public.projects p
+  update public.hlab_projects p
      set position = o.ord::integer
     from unnest(p_ids) with ordinality as o(id, ord)
    where p.id = o.id;
 end;
 $$;
 
-create or replace function public.reorder_blocks(p_ids uuid[])
+create or replace function public.hlab_reorder_blocks(p_ids uuid[])
 returns void
 language plpgsql
 security invoker
 set search_path = ''
 as $$
 begin
-  if not public.is_admin() then
+  if not public.hlab_is_admin() then
     raise exception 'not authorized' using errcode = '42501';
   end if;
-  update public.content_blocks b
+  update public.hlab_content_blocks b
      set position = o.ord::integer
     from unnest(p_ids) with ordinality as o(id, ord)
    where b.id = o.id;
@@ -378,7 +387,7 @@ $$;
 
 -- Where is a media item referenced? Blocks reference media ids inside jsonb, so
 -- there is no foreign key for them; this function is what the admin UI consults.
-create or replace function public.media_usage(p_media_id uuid)
+create or replace function public.hlab_media_usage(p_media_id uuid)
 returns table (kind text, ref_id text, label text)
 language plpgsql
 stable
@@ -386,29 +395,29 @@ security invoker
 set search_path = ''
 as $$
 begin
-  if not public.is_admin() then
+  if not public.hlab_is_admin() then
     raise exception 'not authorized' using errcode = '42501';
   end if;
 
   return query
     select 'project'::text, p.id::text, p.title
-      from public.projects p where p.cover_media_id = p_media_id
+      from public.hlab_projects p where p.cover_media_id = p_media_id
     union all
     select 'block'::text, b.id::text, b.admin_label
-      from public.content_blocks b where position(p_media_id::text in b.content::text) > 0
+      from public.hlab_content_blocks b where position(p_media_id::text in b.content::text) > 0
     union all
     select 'settings'::text, s.id::text, 'Profile image'::text
-      from public.site_settings s where s.profile_media_id = p_media_id
+      from public.hlab_site_settings s where s.profile_media_id = p_media_id
     union all
     select 'settings'::text, s.id::text, 'Share image'::text
-      from public.site_settings s where s.og_media_id = p_media_id;
+      from public.hlab_site_settings s where s.og_media_id = p_media_id;
 end;
 $$;
 
 -- Deletes the metadata row only if nothing references it, and returns the storage
 -- path so the client can then remove the file. Foreign keys already protect
 -- project covers and settings images; this also protects block references.
-create or replace function public.delete_media(p_media_id uuid)
+create or replace function public.hlab_delete_media(p_media_id uuid)
 returns text
 language plpgsql
 security invoker
@@ -417,15 +426,15 @@ as $$
 declare
   v_path text;
 begin
-  if not public.is_admin() then
+  if not public.hlab_is_admin() then
     raise exception 'not authorized' using errcode = '42501';
   end if;
 
-  if exists (select 1 from public.media_usage(p_media_id)) then
+  if exists (select 1 from public.hlab_media_usage(p_media_id)) then
     raise exception 'media is still in use' using errcode = '23503';
   end if;
 
-  delete from public.media where id = p_media_id returning storage_path into v_path;
+  delete from public.hlab_media where id = p_media_id returning storage_path into v_path;
   if v_path is null then
     raise exception 'media not found' using errcode = 'P0002';
   end if;
@@ -433,7 +442,7 @@ begin
 end;
 $$;
 
-revoke all on function public.reorder_projects(uuid[]), public.reorder_blocks(uuid[]),
-  public.media_usage(uuid), public.delete_media(uuid) from public, anon;
-grant execute on function public.reorder_projects(uuid[]), public.reorder_blocks(uuid[]),
-  public.media_usage(uuid), public.delete_media(uuid) to authenticated;
+revoke all on function public.hlab_reorder_projects(uuid[]), public.hlab_reorder_blocks(uuid[]),
+  public.hlab_media_usage(uuid), public.hlab_delete_media(uuid) from public, anon;
+grant execute on function public.hlab_reorder_projects(uuid[]), public.hlab_reorder_blocks(uuid[]),
+  public.hlab_media_usage(uuid), public.hlab_delete_media(uuid) to authenticated;

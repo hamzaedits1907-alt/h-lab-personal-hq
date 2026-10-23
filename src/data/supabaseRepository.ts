@@ -35,6 +35,7 @@ import { getSupabase } from './supabaseClient';
 import {
   MEDIA_EXTENSIONS,
   parse,
+  onlyProvided,
   validateBlockPatch,
   validateMediaUpload,
   validateNewBlock,
@@ -89,10 +90,10 @@ export class SupabaseRepository implements Repository {
 
   async loadSite(): Promise<SiteData> {
     const [settings, blocks, projects, media] = await Promise.all([
-      this.sb.from('site_settings').select('*').eq('id', 1).maybeSingle(),
-      this.sb.from('content_blocks').select('*').order('position').order('created_at'),
-      this.sb.from('projects').select('*').order('position').order('created_at'),
-      this.sb.from('media').select('*'),
+      this.sb.from('hlab_site_settings').select('*').eq('id', 1).maybeSingle(),
+      this.sb.from('hlab_content_blocks').select('*').order('position').order('created_at'),
+      this.sb.from('hlab_projects').select('*').order('position').order('created_at'),
+      this.sb.from('hlab_media').select('*'),
     ]);
     if (settings.error) throw toAppError(settings.error, 'loading the site');
     if (blocks.error) throw toAppError(blocks.error, 'loading sections');
@@ -125,7 +126,7 @@ export class SupabaseRepository implements Repository {
 
   private async stateFor(user: { id: string; email?: string | undefined } | null | undefined): Promise<AuthState> {
     if (!user) return { status: 'signed-out' };
-    const { data, error } = await this.sb.rpc('is_admin');
+    const { data, error } = await this.sb.rpc('hlab_is_admin');
     return { status: 'signed-in', userId: user.id, email: user.email ?? '', isAdmin: !error && data === true };
   }
 
@@ -162,13 +163,13 @@ export class SupabaseRepository implements Repository {
 
   async saveSettings(input: SettingsInput): Promise<SiteSettings> {
     const value = parse(settingsInputSchema, input, 'The settings');
-    const res = await this.sb.from('site_settings').update(settingsToRow(value)).eq('id', 1).select('*').single();
+    const res = await this.sb.from('hlab_site_settings').update(settingsToRow(value)).eq('id', 1).select('*').single();
     return rowToSettings(check(res, 'saving settings') as SettingsRow);
   }
 
   /* ------------------------------- sections ------------------------------- */
 
-  private async nextPosition(table: 'content_blocks' | 'projects'): Promise<number> {
+  private async nextPosition(table: 'hlab_content_blocks' | 'hlab_projects'): Promise<number> {
     const { data, error } = await this.sb.from(table).select('position').order('position', { ascending: false }).limit(1);
     if (error) throw toAppError(error, 'preparing the new item');
     return ((data?.[0] as { position: number } | undefined)?.position ?? 0) + 1;
@@ -176,9 +177,9 @@ export class SupabaseRepository implements Repository {
 
   async createBlock(input: NewBlockInput): Promise<ContentBlock> {
     const v = validateNewBlock(input);
-    const position = await this.nextPosition('content_blocks');
+    const position = await this.nextPosition('hlab_content_blocks');
     const res = await this.sb
-      .from('content_blocks')
+      .from('hlab_content_blocks')
       .insert({ type: v.type, anchor: v.anchor, admin_label: v.adminLabel, content: v.content, is_visible: v.isVisible, position })
       .select('*')
       .single();
@@ -194,20 +195,20 @@ export class SupabaseRepository implements Repository {
     if (v.adminLabel !== undefined) row.admin_label = v.adminLabel;
     if (v.isVisible !== undefined) row.is_visible = v.isVisible;
     if (v.content !== undefined) row.content = v.content;
-    const res = await this.sb.from('content_blocks').update(row).eq('id', id).select('*').single();
+    const res = await this.sb.from('hlab_content_blocks').update(row).eq('id', id).select('*').single();
     const block = rowToBlock(check(res, 'saving the section') as BlockRow);
     if (!block) throw new AppError('unknown', 'The section was saved but could not be read back.');
     return block;
   }
 
   async deleteBlock(id: string): Promise<void> {
-    const res = await this.sb.from('content_blocks').delete().eq('id', id).select('id');
+    const res = await this.sb.from('hlab_content_blocks').delete().eq('id', id).select('id');
     const rows = check(res, 'deleting the section');
     if (rows.length === 0) throw new AppError('unauthorized', 'Nothing was deleted. The section was not found or you are not allowed to delete it.');
   }
 
   async reorderBlocks(ids: string[]): Promise<void> {
-    const { error } = await this.sb.rpc('reorder_blocks', { p_ids: ids });
+    const { error } = await this.sb.rpc('hlab_reorder_blocks', { p_ids: ids });
     if (error) throw toAppError(error, 'saving the order');
   }
 
@@ -215,9 +216,9 @@ export class SupabaseRepository implements Repository {
 
   async createProject(input: ProjectInput): Promise<Project> {
     const v = parse(projectInputSchema, input, 'The project');
-    const position = await this.nextPosition('projects');
+    const position = await this.nextPosition('hlab_projects');
     const res = await this.sb
-      .from('projects')
+      .from('hlab_projects')
       .insert({ ...projectToRow(v), position })
       .select('*')
       .single();
@@ -225,19 +226,19 @@ export class SupabaseRepository implements Repository {
   }
 
   async updateProject(id: string, patch: Partial<ProjectInput>): Promise<Project> {
-    const v = parse(projectInputSchema.partial(), patch, 'The project');
-    const res = await this.sb.from('projects').update(projectToRow(v)).eq('id', id).select('*').single();
+    const v = onlyProvided(parse(projectInputSchema.partial(), patch, 'The project'), patch);
+    const res = await this.sb.from('hlab_projects').update(projectToRow(v)).eq('id', id).select('*').single();
     return rowToProject(check(res, 'saving the project') as ProjectRow);
   }
 
   async deleteProject(id: string): Promise<void> {
-    const res = await this.sb.from('projects').delete().eq('id', id).select('id');
+    const res = await this.sb.from('hlab_projects').delete().eq('id', id).select('id');
     const rows = check(res, 'deleting the project');
     if (rows.length === 0) throw new AppError('unauthorized', 'Nothing was deleted. The project was not found or you are not allowed to delete it.');
   }
 
   async reorderProjects(ids: string[]): Promise<void> {
-    const { error } = await this.sb.rpc('reorder_projects', { p_ids: ids });
+    const { error } = await this.sb.rpc('hlab_reorder_projects', { p_ids: ids });
     if (error) throw toAppError(error, 'saving the order');
   }
 
@@ -262,7 +263,7 @@ export class SupabaseRepository implements Repository {
     const altValue = parse(mediaAltSchema, alt, 'The alt text');
     const { path, mime } = await this.putObject(file);
     const res = await this.sb
-      .from('media')
+      .from('hlab_media')
       .insert({
         storage_path: path,
         mime_type: mime,
@@ -281,11 +282,11 @@ export class SupabaseRepository implements Repository {
   }
 
   async replaceMediaFile(id: string, file: File, dims?: { width: number; height: number } | null): Promise<MediaItem> {
-    const { data: old, error: readError } = await this.sb.from('media').select('storage_path').eq('id', id).single();
+    const { data: old, error: readError } = await this.sb.from('hlab_media').select('storage_path').eq('id', id).single();
     if (readError) throw toAppError(readError, 'finding the image');
     const { path, mime } = await this.putObject(file);
     const res = await this.sb
-      .from('media')
+      .from('hlab_media')
       .update({ storage_path: path, mime_type: mime, size_bytes: file.size, width: dims?.width ?? null, height: dims?.height ?? null })
       .eq('id', id)
       .select('*')
@@ -300,12 +301,12 @@ export class SupabaseRepository implements Repository {
 
   async updateMediaAlt(id: string, alt: LocalizedText): Promise<MediaItem> {
     const altValue = parse(mediaAltSchema, alt, 'The alt text');
-    const res = await this.sb.from('media').update({ alt: altValue }).eq('id', id).select('*').single();
+    const res = await this.sb.from('hlab_media').update({ alt: altValue }).eq('id', id).select('*').single();
     return rowToMedia(check(res, 'saving alt text') as MediaRow);
   }
 
   async getMediaUsage(id: string): Promise<MediaUsage[]> {
-    const res = await this.sb.rpc('media_usage', { p_media_id: id });
+    const res = await this.sb.rpc('hlab_media_usage', { p_media_id: id });
     const rows = check(res, 'checking where the image is used') as { kind: MediaUsage['kind']; ref_id: string; label: string }[];
     return rows.map((r) => ({ kind: r.kind, refId: r.ref_id, label: r.label }));
   }
@@ -313,7 +314,7 @@ export class SupabaseRepository implements Repository {
   async deleteMedia(id: string): Promise<void> {
     const usages = await this.getMediaUsage(id);
     if (usages.length > 0) throw new MediaInUseError(usages);
-    const res = await this.sb.rpc('delete_media', { p_media_id: id });
+    const res = await this.sb.rpc('hlab_delete_media', { p_media_id: id });
     if (res.error) {
       if (res.error.code === '23503') throw new MediaInUseError(await this.getMediaUsage(id));
       throw toAppError(res.error, 'deleting the image');
@@ -324,7 +325,7 @@ export class SupabaseRepository implements Repository {
   /* ------------------------------ admin extras ------------------------------ */
 
   async listChanges(limit = 8): Promise<ChangeEntry[]> {
-    const res = await this.sb.from('change_log').select('*').order('at', { ascending: false }).limit(limit);
+    const res = await this.sb.from('hlab_change_log').select('*').order('at', { ascending: false }).limit(limit);
     const rows = check(res, 'loading recent changes') as {
       id: number;
       table_name: string;
@@ -333,6 +334,6 @@ export class SupabaseRepository implements Repository {
       summary: string;
       at: string;
     }[];
-    return rows.map((r) => ({ id: r.id, table: r.table_name, rowId: r.row_id, action: r.action, summary: r.summary, at: r.at }));
+    return rows.map((r) => ({ id: r.id, table: r.table_name.replace(/^hlab_/, ''), rowId: r.row_id, action: r.action, summary: r.summary, at: r.at }));
   }
 }

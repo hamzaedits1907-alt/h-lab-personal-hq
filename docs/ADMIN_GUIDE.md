@@ -2,26 +2,28 @@
 
 ## 1. Create the first admin (one time)
 
-There is no sign-up form by design. You create your own account in Supabase, then grant it admin rights with one SQL statement. Do this *after* the migrations have been applied (DEPLOYMENT.md §1).
+There is no sign-up form by design. The admin is a normal Supabase Auth user whose id is listed in the H/LAB-only table `public.hlab_admins`. This is independent of any other application's admin roles in the same Supabase project, and the app can never change that table. Do this *after* the migrations have been applied (DEPLOYMENT.md §1).
 
-1. **Turn off public sign-ups.** Supabase dashboard → *Authentication* → *Sign In / Providers* → disable **Allow new users to sign up**.
-2. **Create your user.** *Authentication* → *Users* → **Add user** → **Create new user**. Enter your email and a strong, unique password; tick **Auto Confirm User**.
-3. **Grant admin.** *SQL Editor* → new query → run (replace the email):
+1. **Create the user** (pick one):
+   - *Authentication* → *Users* → **Add user** → **Create new user** (tick **Auto Confirm User**); or
+   - sign up once through the project's public sign-up endpoint with a strong random password.
+   Do **not** change global sign-up/provider settings if the project is shared with another app.
+2. **Grant H/LAB admin** — *SQL Editor* (or `npx supabase db query --linked -f ...`) with the exact email (replace it):
 
    ```sql
-   insert into public.admins (user_id)
+   insert into public.hlab_admins (user_id)
    select id from auth.users where email = 'you@example.com';
    ```
 
-   Check it worked — this must return exactly one row with your id:
+   Check it: this must return exactly one row, your id:
 
    ```sql
-   select a.user_id, u.email from public.admins a join auth.users u on u.id = a.user_id;
+   select a.user_id, u.email from public.hlab_admins a join auth.users u on u.id = a.user_id;
    ```
-4. Open `https://<your-site>/admin`, sign in. If you see **Not authorized**, step 3 did not match your email.
-5. Recommended: enable MFA on this account.
+3. Open `https://<your-site>/admin`, sign in. If you see **Not authorized**, step 2 did not match your email.
+4. Recommended: enable MFA on this account.
 
-To add or remove an admin later, use the same SQL editor (`insert into` / `delete from public.admins`). The app itself can never change this table.
+To add or remove an admin later, use the same SQL (`insert into` / `delete from public.hlab_admins`). Being an admin of another app in the same project gives **no** H/LAB rights, and vice versa.
 
 ## 2. Day-to-day
 
@@ -70,7 +72,7 @@ Publish/draft switch, site name, logo text, contact email, social links (GitHub,
 
 | Symptom | Cause / fix |
 | --- | --- |
-| “Not authorized” after sign-in | Account isn't in `public.admins` (§1 step 3). |
+| “Not authorized” after sign-in | Account isn't in `public.hlab_admins` (§1 step 2). |
 | Admin pages say settings are missing | Migrations not applied (DEPLOYMENT.md §1). |
 | A section shows “content is invalid” on the Sections page | Its stored content no longer matches its type (e.g. edited directly in SQL). Delete and re-add it. |
 | Can't delete an image | It's still used; follow the links shown, remove it there, retry. |

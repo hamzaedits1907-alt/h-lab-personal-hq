@@ -5,8 +5,8 @@
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
-  'site-media',
-  'site-media',
+  'hlab-media',
+  'hlab-media',
   true,
   5242880, -- 5 MB
   array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
@@ -14,19 +14,19 @@ values (
 -- Never modify an existing bucket of the same name (it could belong to another project).
 on conflict (id) do nothing;
 
-create policy "admins read site-media objects"
+create policy "hlab: admins read hlab-media objects"
   on storage.objects for select to authenticated
-  using (bucket_id = 'site-media' and public.is_admin());
+  using (bucket_id = 'hlab-media' and public.hlab_is_admin());
 
-create policy "admins upload site-media objects"
+create policy "hlab: admins upload hlab-media objects"
   on storage.objects for insert to authenticated
-  with check (bucket_id = 'site-media' and public.is_admin());
+  with check (bucket_id = 'hlab-media' and public.hlab_is_admin());
 
-create policy "admins update site-media objects"
+create policy "hlab: admins update hlab-media objects"
   on storage.objects for update to authenticated
-  using (bucket_id = 'site-media' and public.is_admin())
-  with check (bucket_id = 'site-media' and public.is_admin());
+  using (bucket_id = 'hlab-media' and public.hlab_is_admin())
+  with check (bucket_id = 'hlab-media' and public.hlab_is_admin());
 
-create policy "admins delete site-media objects"
+create policy "hlab: admins delete hlab-media objects"
   on storage.objects for delete to authenticated
-  using (bucket_id = 'site-media' and public.is_admin());
+  using (bucket_id = 'hlab-media' and public.hlab_is_admin());

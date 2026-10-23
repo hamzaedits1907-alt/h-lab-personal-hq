@@ -40,14 +40,14 @@ Stored jsonb is re-validated on read. A block whose content no longer matches it
 
 | Table | Notes |
 | --- | --- |
-| `admins` | `user_id` → `auth.users`. Clients can read only their own row; **no** insert/update/delete policy or grant. |
-| `site_settings` | Singleton row (`id = 1`). Identity, contact, `social_links`, `nav`, `footer`, `seo`, `ui` (jsonb), languages, publish flag, appearance enums, profile/OG media FKs. |
-| `content_blocks` | `type` (8 values), unique `anchor`, `admin_label`, `content` jsonb, `position`, `is_visible`. Allowed top-level keys per type are enforced by a `CHECK` function. |
-| `projects` | `slug` unique, `title`, localized `summary`/`description`, `status`, `tags[]`, `url` and `repo_url` (https only, both nullable; `repo_url` added by migration 0004), `cover_media_id` FK, `position`, `is_visible`. |
-| `media` | Metadata for files in the `site-media` bucket: path, mime (jpeg/png/webp/avif), size ≤ 5 MB, dimensions, localized `alt`. |
-| `change_log` | Admin-only audit trail written by triggers; capped at ~500 rows. Powers *Recent changes*. |
+| `hlab_admins` | `user_id` → `auth.users`. Clients can read only their own row; **no** insert/update/delete policy or grant. |
+| `hlab_site_settings` | Singleton row (`id = 1`). Identity, contact, `social_links`, `nav`, `footer`, `seo`, `ui` (jsonb), languages, publish flag, appearance enums, profile/OG media FKs. |
+| `hlab_content_blocks` | `type` (8 values), unique `anchor`, `admin_label`, `content` jsonb, `position`, `is_visible`. Allowed top-level keys per type are enforced by a `CHECK` function. |
+| `hlab_projects` | `slug` unique, `title`, localized `summary`/`description`, `status`, `tags[]`, `url` and `repo_url` (https only, both nullable; `repo_url` added by migration 0004), `cover_media_id` FK, `position`, `is_visible`. |
+| `hlab_media` | Metadata for files in the `hlab-media` bucket: path, mime (jpeg/png/webp/avif), size ≤ 5 MB, dimensions, localized `alt`. |
+| `hlab_change_log` | Admin-only audit trail written by triggers; capped at ~500 rows. Powers *Recent changes*. |
 
-RPCs (SECURITY INVOKER, so RLS still applies): `reorder_projects`, `reorder_blocks`, `media_usage`, `delete_media`. `is_admin()` is the one SECURITY DEFINER helper.
+RPCs (SECURITY INVOKER, so RLS still applies): `hlab_reorder_projects`, `hlab_reorder_blocks`, `hlab_media_usage`, `hlab_delete_media`. `hlab_is_admin()` is the one SECURITY DEFINER helper.
 
 **Referential safety for media:** project covers and settings images use `ON DELETE RESTRICT` foreign keys. Block content references media by id inside jsonb (no FK possible), so `delete_media` checks `media_usage()` first and refuses; the UI shows exactly where the image is used.
 
@@ -73,7 +73,7 @@ Complete: data model, public switch, admin editing, fallbacks. **Not** automated
 
 ## SEO and sharing — honest limitation
 
-Title, description, Open Graph and Twitter tags are updated in the browser from the database. Crawlers that don't execute JavaScript (many link-preview bots) only see the static tags in `index.html`. If rich previews matter, add a Netlify Edge Function or a prerender step that injects these tags from the public `site_settings` row. This is not implemented.
+Title, description, Open Graph and Twitter tags are updated in the browser from the database. Crawlers that don't execute JavaScript (many link-preview bots) only see the static tags in `index.html`. If rich previews matter, add a Netlify Edge Function or a prerender step that injects these tags from the public `hlab_site_settings` row. This is not implemented.
 
 ## Demo mode
 

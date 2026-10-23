@@ -31,25 +31,25 @@ describe('migration 0004: project source-code link', () => {
     });
 
     it('keeps every existing project readable and unchanged, with repo_url NULL', async () => {
-      const before = await db.query<{ id: string; title: string }>(`select id, title from public.projects order by position`);
+      const before = await db.query<{ id: string; title: string }>(`select id, title from public.hlab_projects order by position`);
       await db.exec(migration());
       const after = await db.query<{ id: string; title: string; repo_url: string | null }>(
-        `select id, title, repo_url from public.projects order by position`,
+        `select id, title, repo_url from public.hlab_projects order by position`,
       );
       expect(after.rows.map(({ id, title }) => ({ id, title }))).toEqual(before.rows);
       expect(after.rows.every((r) => r.repo_url === null)).toBe(true);
     });
 
     it('sets the verified live links for two starter projects, only where none exists', async () => {
-      const urls = await db.query<{ title: string; url: string | null }>(`select title, url from public.projects where url is not null order by position`);
+      const urls = await db.query<{ title: string; url: string | null }>(`select title, url from public.hlab_projects where url is not null order by position`);
       expect(urls.rows).toEqual([
         { title: 'Project Genius', url: 'https://project-genius.netlify.app/' },
         { title: 'Lufthansa Launcher', url: 'https://lufthansa-connect-ptfs.netlify.app/' },
       ]);
       // an owner-set link is never replaced
-      await db.exec(`update public.projects set url = 'https://mine.example/' where title = 'Project Genius'`);
+      await db.exec(`update public.hlab_projects set url = 'https://mine.example/' where title = 'Project Genius'`);
       await db.exec(migration());
-      const g = await db.query<{ url: string }>(`select url from public.projects where title = 'Project Genius'`);
+      const g = await db.query<{ url: string }>(`select url from public.hlab_projects where title = 'Project Genius'`);
       expect(g.rows[0]?.url).toBe('https://mine.example/');
     });
 
@@ -68,29 +68,29 @@ describe('migration 0004: project source-code link', () => {
     afterAll(async () => db.close());
 
     it('accepts https links and NULL', async () => {
-      expect(await failure(db, 'admin', `update public.projects set repo_url = 'https://github.com/example/repo' where id = '${GENIUS}'`)).toBeNull();
-      expect(await failure(db, 'admin', `update public.projects set repo_url = null where id = '${GENIUS}'`)).toBeNull();
+      expect(await failure(db, 'admin', `update public.hlab_projects set repo_url = 'https://github.com/example/repo' where id = '${GENIUS}'`)).toBeNull();
+      expect(await failure(db, 'admin', `update public.hlab_projects set repo_url = null where id = '${GENIUS}'`)).toBeNull();
     });
 
     it('rejects non-https, script and malformed links', async () => {
       const bad = ['http://github.com/x', 'javascript:alert(1)', 'git@github.com:x/y.git', 'https://exa mple.com', 'ftp://x.example', `https://${'a'.repeat(500)}.com`];
       for (const value of bad) {
-        const err = await failure(db, 'admin', `update public.projects set repo_url = '${value}' where id = '${GENIUS}'`);
+        const err = await failure(db, 'admin', `update public.hlab_projects set repo_url = '${value}' where id = '${GENIUS}'`);
         expect(err, value).toMatch(/check constraint/i);
       }
     });
 
     it('only the admin can change it; visitors can read it for published projects only', async () => {
-      await db.exec(`update public.projects set repo_url = 'https://github.com/example/repo' where id = '${GENIUS}'`);
-      expect(await failure(db, 'anon', `update public.projects set repo_url = 'https://evil.example'`)).toMatch(/permission denied/i);
-      const user = await as(db, 'user', () => db.query(`update public.projects set repo_url = 'https://evil.example' returning id`));
+      await db.exec(`update public.hlab_projects set repo_url = 'https://github.com/example/repo' where id = '${GENIUS}'`);
+      expect(await failure(db, 'anon', `update public.hlab_projects set repo_url = 'https://evil.example'`)).toMatch(/permission denied/i);
+      const user = await as(db, 'user', () => db.query(`update public.hlab_projects set repo_url = 'https://evil.example' returning id`));
       expect(user.rows).toHaveLength(0);
-      const seen = await as(db, 'anon', () => db.query<{ repo_url: string }>(`select repo_url from public.projects where id = '${GENIUS}'`));
+      const seen = await as(db, 'anon', () => db.query<{ repo_url: string }>(`select repo_url from public.hlab_projects where id = '${GENIUS}'`));
       expect(seen.rows[0]?.repo_url).toBe('https://github.com/example/repo');
-      await db.exec(`update public.projects set is_visible = false where id = '${GENIUS}'`);
-      const hidden = await as(db, 'anon', () => db.query(`select repo_url from public.projects where id = '${GENIUS}'`));
+      await db.exec(`update public.hlab_projects set is_visible = false where id = '${GENIUS}'`);
+      const hidden = await as(db, 'anon', () => db.query(`select repo_url from public.hlab_projects where id = '${GENIUS}'`));
       expect(hidden.rows).toHaveLength(0);
-      await db.exec(`update public.projects set is_visible = true where id = '${GENIUS}'`);
+      await db.exec(`update public.hlab_projects set is_visible = true where id = '${GENIUS}'`);
     });
   });
 
@@ -101,10 +101,10 @@ describe('migration 0004: project source-code link', () => {
     const previousRelease = async () => {
       const db = await createDb({ skip: ['0004'] });
       await db.exec(`
-        update public.content_blocks
+        update public.hlab_content_blocks
            set content = jsonb_set(content, '{body}', $j$${JSON.stringify(OLD_ABOUT_BODY)}$j$::jsonb)
          where id = '${ABOUT}';
-        update public.site_settings
+        update public.hlab_site_settings
            set ui = jsonb_set(ui, '{labels}', ((ui->'labels') - 'sourceCode'::text - 'newTab'::text) || jsonb_build_object('visitProject', $j$${JSON.stringify(OLD_VISIT)}$j$::jsonb));
       `);
       return db;
@@ -113,9 +113,9 @@ describe('migration 0004: project source-code link', () => {
     it('upgrades unedited starter copy to the new About text and labels', async () => {
       const db = await previousRelease();
       await db.exec(migration());
-      const r = await db.query<{ content: unknown }>(`select content from public.content_blocks where id = '${ABOUT}'`);
+      const r = await db.query<{ content: unknown }>(`select content from public.hlab_content_blocks where id = '${ABOUT}'`);
       expect(r.rows[0]?.content).toEqual(about.content); // exactly what seed.ts defines: no drift
-      const s = await db.query<{ ui: { labels: Record<string, unknown> } }>(`select ui from public.site_settings`);
+      const s = await db.query<{ ui: { labels: Record<string, unknown> } }>(`select ui from public.hlab_site_settings`);
       expect(s.rows[0]?.ui.labels).toMatchObject({
         visitProject: seedSettings.ui.labels.visitProject,
         sourceCode: seedSettings.ui.labels.sourceCode,
@@ -127,23 +127,23 @@ describe('migration 0004: project source-code link', () => {
     it('never overwrites copy the owner has edited', async () => {
       const db = await previousRelease();
       await db.exec(`
-        update public.content_blocks set content = jsonb_set(content, '{body}', '{"en":"My own words.","tr":"Kendi sözlerim."}') where id = '${ABOUT}';
-        update public.site_settings set ui = jsonb_set(ui, '{labels,visitProject}', '{"en":"Go see it","tr":"Git bak"}');
+        update public.hlab_content_blocks set content = jsonb_set(content, '{body}', '{"en":"My own words.","tr":"Kendi sözlerim."}') where id = '${ABOUT}';
+        update public.hlab_site_settings set ui = jsonb_set(ui, '{labels,visitProject}', '{"en":"Go see it","tr":"Git bak"}');
       `);
       const snapshot = async () =>
-        (await db.query(`select content from public.content_blocks where id = '${ABOUT}'`)).rows[0];
+        (await db.query(`select content from public.hlab_content_blocks where id = '${ABOUT}'`)).rows[0];
       const before = await snapshot();
       await db.exec(migration());
       expect(await snapshot()).toEqual(before); // the whole About block is untouched
       expect((before as { content: { body: unknown } }).content.body).toEqual({ en: 'My own words.', tr: 'Kendi sözlerim.' });
-      const s = await db.query<{ v: unknown }>(`select ui -> 'labels' -> 'visitProject' as v from public.site_settings`);
+      const s = await db.query<{ v: unknown }>(`select ui -> 'labels' -> 'visitProject' as v from public.hlab_site_settings`);
       expect(s.rows[0]?.v).toEqual({ en: 'Go see it', tr: 'Git bak' });
       await db.close();
     });
 
     it('fresh installs get the new copy straight from the seed', async () => {
       const db = await createDb();
-      const r = await db.query<{ content: unknown }>(`select content from public.content_blocks where id = '${ABOUT}'`);
+      const r = await db.query<{ content: unknown }>(`select content from public.hlab_content_blocks where id = '${ABOUT}'`);
       expect(r.rows[0]?.content).toEqual(about.content);
       await db.close();
     });

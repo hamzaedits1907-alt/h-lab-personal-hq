@@ -18,28 +18,29 @@ Requires Node ≥ 20 (`.nvmrc` pins 22).
 
 ## 1. Supabase
 
-> **Use a dedicated Supabase project for H/LAB. Do not share one with another application.**
-> The migrations create generically named objects in the `public` schema (`projects`, `media`, `admins`, `site_settings`, `is_admin()`…). In a shared project those would collide with the other app's objects, and `is_admin()` in particular is commonly used by other apps' security policies. Sharing also means sharing Supabase Auth: the "disable sign-ups" step below would block that other app's new users too.
-> To protect against accidents, `0001` aborts (changing nothing) if any of these names already exist, and `0004` refuses to touch a `projects` table that isn't H/LAB's. A free Supabase account can hold two projects.
+> **Shared-project safe.** Every H/LAB object is prefixed: tables `hlab_*`, functions `hlab_*` (admin check is `hlab_is_admin()`), indexes/triggers `hlab_*`, policies `hlab: ...`, storage bucket `hlab-media`. Admin rights come from `hlab_admins`, never from another app's tables. The migrations never touch auth settings, other tables/functions/policies/buckets. `0001` still aborts (changing nothing) if an `hlab_*` object already exists, and `0004` refuses to run unless the H/LAB tables exist (`tests/db/isolation.test.ts` simulates a foreign app with colliding generic names).
+> A dedicated project is still the cleanest option if you have a free slot (free accounts allow 2 active projects).
 
-**Free-plan limit:** a Supabase account allows 2 *active* free projects. If both slots are used by other apps you must pause/delete one of them or upgrade before H/LAB's project can be created (the CLI reports "reached their maximum limits for the number of active free projects"). Never reuse a project that belongs to another app.
-
-1. Create a **new** project at supabase.com (or `supabase projects create hlab-personal-hq --org-id <org> --db-password <strong password> --region eu-central-1`). Note the **Project URL** and the **anon / publishable** key (*Project Settings → API*). Do **not** use or copy the service-role / secret key anywhere; H/LAB never needs it.
+1. Use a Supabase project (existing shared one, or a new one). Note the **Project URL** and the **anon / publishable** key (*Project Settings → API*). Do **not** use or copy the service-role / secret key anywhere; H/LAB never needs it.
 2. Apply the migrations **in order**. Either:
    - *SQL Editor*: paste and run `supabase/migrations/0001_core_schema.sql`, then `0002_storage.sql`, `0003_seed_starter_content.sql` and `0004_project_repo_url.sql`; or
    - Supabase CLI (confirm the ref is the NEW H/LAB project before pushing):
      ```bash
-     npx supabase projects list                  # find the new project's ref
-     npx supabase link --project-ref <ref>       # asks for the database password
-     npx supabase db push --dry-run              # shows exactly which migrations will run
-     npx supabase db push                        # applies 0001 -> 0004 in order
+     npx supabase projects list                  # find and CONFIRM the project ref
+     # Shared project with its own migration history? Don't `db push`; run the files directly:
+     cat supabase/migrations/000{1,2,3,4}_*.sql > all.sql
+     (echo "begin;"; cat all.sql; echo "rollback;") > dry.sql   # dry run first
+     npx supabase db query --linked --project-ref <ref> -f dry.sql
+     (echo "begin;"; cat all.sql; echo "commit;") > apply.sql
+     npx supabase db query --linked --project-ref <ref> -f apply.sql
      ```
+   (In a fresh dedicated project `npx supabase db push` works as usual.)
 
    `0003` only inserts into empty tables, so re-running it never overwrites edits. If you change `src/content/seed.ts`, regenerate it with `npm run seed:sql`.
 
    **`0004` (project source-code link + personal About copy)** adds a nullable `repo_url` column, so existing projects keep working unchanged. It replaces the starter About text and the "Visit project" label *only* where they still match the original starter text exactly; anything you edited is left alone. Apply it **before** deploying a build that saves the source-code link (otherwise saving a project shows "database is missing the latest migration"). It is safe to run more than once.
-3. Check *Storage*: a public bucket **site-media** exists (5 MB, images only).
-4. Create the first admin: ADMIN_GUIDE.md §1 (disable sign-ups, create user, insert into `public.admins`).
+3. Check *Storage*: a public bucket **hlab-media** exists (5 MB, images only).
+4. Create the first admin: ADMIN_GUIDE.md §1 (create user, insert into `public.hlab_admins`).
 
 ## 2. Environment variables
 
@@ -101,7 +102,7 @@ Because the database policies were verified in an emulated Postgres, confirm the
 | Problem | Fix |
 | --- | --- |
 | Site says “Not configured yet” | The two env vars are missing at build time. Add them and redeploy. |
-| “This site isn't set up yet” | Migrations not applied (no `site_settings` row). |
+| “This site isn't set up yet” | Migrations not applied (no `hlab_site_settings` row). |
 | `/admin/...` is a 404 on refresh | SPA redirect missing; ensure `netlify.toml` is at the repo root. |
 | Images don't load | CSP: the Supabase host must match `https://*.supabase.co`. |
 | Build fails `verify-build` | A demo marker or key-like string reached `dist/`; the message names the file. |

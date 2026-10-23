@@ -8,7 +8,7 @@ const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
 export const env = {
   supabaseUrl: url,
   supabaseAnonKey: anonKey,
-  bucket: (import.meta.env.VITE_SUPABASE_BUCKET ?? 'site-media').trim() || 'site-media',
+  bucket: (import.meta.env.VITE_SUPABASE_BUCKET ?? 'hlab-media').trim() || 'hlab-media',
   hasSupabase: /^https:\/\/[^\s]+$/.test(url) && anonKey.length > 20,
   /**
    * Demo mode keeps everything in this browser's localStorage and is only ever

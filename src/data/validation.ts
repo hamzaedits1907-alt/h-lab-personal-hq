@@ -118,3 +118,12 @@ export async function validateMediaUpload(file: File | Blob & { name?: string })
   }
   return sniffed;
 }
+
+/**
+ * Keep only the keys the caller actually sent. `schema.partial()` still applies field
+ * defaults (e.g. `repoUrl` -> null), which would silently wipe stored values on a partial update.
+ */
+export function onlyProvided<T extends object>(parsed: T, patch: object): Partial<T> {
+  const sent = new Set(Object.keys(patch));
+  return Object.fromEntries(Object.entries(parsed).filter(([k]) => sent.has(k))) as Partial<T>;
+}

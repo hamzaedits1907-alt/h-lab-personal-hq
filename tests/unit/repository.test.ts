@@ -63,6 +63,17 @@ describe('projects', () => {
     expect((await repo.loadSite()).projects.find((x) => x.id === p.id)).toBeUndefined();
   });
 
+  it('a partial update never wipes fields it did not send (source link survives status/visibility changes)', async () => {
+    const { repo } = await makeRepo({ signedIn: true });
+    const p = await repo.createProject({ ...newProject('keeps-links'), url: 'https://example.com', repoUrl: 'https://github.com/a/b' });
+    const up = await repo.updateProject(p.id, { isVisible: false });
+    expect(up).toMatchObject({ isVisible: false, url: 'https://example.com', repoUrl: 'https://github.com/a/b' });
+    const up2 = await repo.updateProject(p.id, { status: 'paused' });
+    expect(up2.repoUrl).toBe('https://github.com/a/b');
+    const cleared = await repo.updateProject(p.id, { repoUrl: null });
+    expect(cleared.repoUrl).toBeNull();
+  });
+
   it('rejects duplicate slugs and invalid input without changing anything', async () => {
     const { repo } = await makeRepo({ signedIn: true });
     await expect(repo.createProject(newProject('jarvis'))).rejects.toMatchObject({ code: 'conflict' });
