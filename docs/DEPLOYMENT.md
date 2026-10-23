@@ -6,7 +6,9 @@ Nothing here has been run against a live Supabase project, GitHub remote or Netl
 
 ```bash
 npm ci
-npm run dev:demo      # full UI with browser-only data (no Supabase). Demo login: demo@hlab.local / demo-password
+npm run dev:demo      # full UI with browser-only data (no Supabase)
+                      # click "Open demo admin" (bottom of the public page) to enter the real admin;
+                      # "Reset demo" restores the starter content. Data stays in this browser only.
 npm run dev           # real mode; needs .env.local (see below)
 npm run check         # typecheck + unit/db tests + production build + bundle safety check
 npm run test:e2e      # builds the demo bundle and runs Playwright in Chrome
@@ -20,10 +22,18 @@ Requires Node ≥ 20 (`.nvmrc` pins 22).
 > The migrations create generically named objects in the `public` schema (`projects`, `media`, `admins`, `site_settings`, `is_admin()`…). In a shared project those would collide with the other app's objects, and `is_admin()` in particular is commonly used by other apps' security policies. Sharing also means sharing Supabase Auth: the "disable sign-ups" step below would block that other app's new users too.
 > To protect against accidents, `0001` aborts (changing nothing) if any of these names already exist, and `0004` refuses to touch a `projects` table that isn't H/LAB's. A free Supabase account can hold two projects.
 
-1. Create a **new** project at supabase.com. Note the **Project URL** and the **anon / publishable** key (*Project Settings → API*). Do **not** use or copy the service-role / secret key anywhere; H/LAB never needs it.
+**Free-plan limit:** a Supabase account allows 2 *active* free projects. If both slots are used by other apps you must pause/delete one of them or upgrade before H/LAB's project can be created (the CLI reports "reached their maximum limits for the number of active free projects"). Never reuse a project that belongs to another app.
+
+1. Create a **new** project at supabase.com (or `supabase projects create hlab-personal-hq --org-id <org> --db-password <strong password> --region eu-central-1`). Note the **Project URL** and the **anon / publishable** key (*Project Settings → API*). Do **not** use or copy the service-role / secret key anywhere; H/LAB never needs it.
 2. Apply the migrations **in order**. Either:
    - *SQL Editor*: paste and run `supabase/migrations/0001_core_schema.sql`, then `0002_storage.sql`, `0003_seed_starter_content.sql` and `0004_project_repo_url.sql`; or
-   - Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`.
+   - Supabase CLI (confirm the ref is the NEW H/LAB project before pushing):
+     ```bash
+     npx supabase projects list                  # find the new project's ref
+     npx supabase link --project-ref <ref>       # asks for the database password
+     npx supabase db push --dry-run              # shows exactly which migrations will run
+     npx supabase db push                        # applies 0001 -> 0004 in order
+     ```
 
    `0003` only inserts into empty tables, so re-running it never overwrites edits. If you change `src/content/seed.ts`, regenerate it with `npm run seed:sql`.
 
