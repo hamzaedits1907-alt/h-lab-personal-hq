@@ -56,12 +56,26 @@ describe('About section (English and Turkish)', () => {
 });
 
 describe('project cards: with and without a cover image', () => {
-  it('shows the generated art when there is no cover', async () => {
+  it('shows distinctive built-in artwork for each starter project when there is no cover', async () => {
     const { repo } = await makeRepo();
     renderAt('/', repo);
-    const card = (await screen.findByRole('link', { name: /Project Genius/ }));
+    await screen.findByRole('heading', { level: 1 });
+    const arts = [...document.querySelectorAll('.card .cover-art')].map((a) => a.getAttribute('data-art'));
+    expect(arts).toEqual(['project-genius', 'project-browser', 'project-frame', 'jarvis', 'edward', 'lufthansa-launcher', 'project-genesis']);
+    // each artwork is genuinely different, not one image repeated
+    const markup = new Set([...document.querySelectorAll('.card .cover-art')].map((a) => a.innerHTML));
+    expect(markup.size).toBe(7);
+    expect(document.querySelector('.card img')).toBeNull();
+    expect(document.querySelector('.card .placeholder-art')).toBeNull();
+  });
+
+  it('uses the generic geometric placeholder for a project that has no built-in artwork', async () => {
+    const { repo } = await makeRepo({ signedIn: true });
+    await repo.createProject({ slug: 'my-own-thing', title: 'My own thing', summary: {}, description: {}, status: 'active', tags: [], url: null, repoUrl: null, coverMediaId: null, isVisible: true });
+    await repo.signOut();
+    renderAt('/', repo);
+    const card = await screen.findByRole('link', { name: /My own thing/ });
     expect(card.querySelector('.placeholder-art')).not.toBeNull();
-    expect(card.querySelector('img')).toBeNull();
   });
 
   it('shows the cover image with its alt text and lazy loading', async () => {
@@ -79,7 +93,7 @@ describe('project cards: with and without a cover image', () => {
     const img = await screen.findByAltText('Broken one');
     const card = img.closest('.card')!;
     fireEvent.error(img);
-    await waitFor(() => expect(card.querySelector('.placeholder-art')).not.toBeNull());
+    await waitFor(() => expect(card.querySelector('.cover-art[data-art="project-genius"]')).not.toBeNull());
     expect(card.querySelector('img')).toBeNull();
   });
 
@@ -90,7 +104,7 @@ describe('project cards: with and without a cover image', () => {
     storage.setItem('hlab-demo-data-v1', JSON.stringify(data));
     renderAt('/', repo);
     const card = await screen.findByRole('link', { name: /Project Genius/ });
-    expect(card.querySelector('.placeholder-art')).not.toBeNull();
+    expect(card.querySelector('.cover-art')).not.toBeNull();
   });
 
   it('cards are keyboard focusable links that open the dialog with Enter', async () => {
@@ -134,7 +148,7 @@ describe('project dialog', () => {
     expect(screen.queryByRole('link', { name: /Source code/ })).not.toBeInTheDocument();
     first.unmount();
 
-    const src = await withGenius({ repoUrl: REPO });
+    const src = await withGenius({ url: null, repoUrl: REPO });
     renderAt('/?project=project-genius', src.repo);
     await screen.findByRole('dialog');
     expect(screen.queryByRole('link', { name: /Open project/ })).not.toBeInTheDocument();
@@ -148,7 +162,7 @@ describe('project dialog', () => {
     expect(within(dialog).getByText('Paused')).toBeInTheDocument();
     expect(within(dialog).getByText('An AI-assisted video editor.')).toBeInTheDocument();
     expect(within(dialog).getByText('Video')).toBeInTheDocument();
-    expect(dialog.querySelector('.placeholder-art')).not.toBeNull();
+    expect(dialog.querySelector('.cover-art[data-art="project-frame"]')).not.toBeNull();
     expect(within(dialog).queryAllByRole('link')).toHaveLength(0);
     expect(dialog.querySelector('a[href="#"], a:not([href])')).toBeNull();
     expect(within(dialog).getAllByRole('button', { name: 'Close' }).length).toBeGreaterThan(0);
@@ -261,7 +275,9 @@ describe('admin project editor: images and links', () => {
     const { repo } = await makeRepo({ signedIn: true });
     const u = user();
     const first = renderAt(`/admin/projects/${ids.genius}`, repo);
-    await u.type(await screen.findByLabelText(/Project link/), LIVE);
+    const live = await screen.findByLabelText(/Project link/);
+    await u.clear(live);
+    await u.type(live, LIVE);
     await u.type(screen.getByLabelText(/Source code link/), REPO);
     await u.click(screen.getByRole('button', { name: 'Save project' }));
     await screen.findByText('Project saved');
@@ -293,12 +309,13 @@ describe('admin project editor: images and links', () => {
     const u = user();
     renderAt(`/admin/projects/${ids.genius}`, repo);
     const input = await screen.findByLabelText(new RegExp(label));
+    await u.clear(input);
     await u.type(input, value);
     await u.click(screen.getByRole('button', { name: 'Save project' }));
     expect(await screen.findByText('Must be a valid https:// address')).toBeInTheDocument();
     expect(input).toHaveAttribute('aria-invalid', 'true');
     const stored = (await repo.loadSite()).projects.find((p) => p.id === ids.genius)!;
-    expect(stored[field as 'url' | 'repoUrl']).toBeNull();
+    expect(stored[field as 'url' | 'repoUrl']).toBe(field === 'url' ? 'https://project-genius.netlify.app/' : null); // unchanged
     expect(screen.queryByText('Project saved')).not.toBeInTheDocument();
   });
 
@@ -322,6 +339,7 @@ describe('compatibility with existing project records', () => {
     await repo.loadSite();
     const data = JSON.parse(storage.getItem('hlab-demo-data-v1')!);
     for (const p of data.projects) delete p.repoUrl; // the previous release's shape
+    delete data.version;
     storage.setItem('hlab-demo-data-v1', JSON.stringify(data));
 
     const site = await repo.loadSite();

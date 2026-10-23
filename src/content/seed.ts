@@ -194,6 +194,7 @@ const project = (
   position: number,
   p: Omit<ProjectInput, 'url' | 'repoUrl' | 'coverMediaId' | 'isVisible' | 'description'> & {
     description: ProjectInput['description'];
+    url?: string;
   },
 ): SeedProject => ({ id: id(200 + n), position, url: null, repoUrl: null, coverMediaId: null, isVisible: true, ...p });
 
@@ -208,6 +209,8 @@ export const seedProjects: SeedProject[] = [
     },
     status: 'active',
     tags: ['AI', 'Workspace'],
+    // Verified live site (HTTP 200, page title "Project Genius"), provided by the owner.
+    url: 'https://project-genius.netlify.app/',
   }),
   project(2, 2, {
     slug: 'project-browser',
@@ -263,6 +266,8 @@ export const seedProjects: SeedProject[] = [
     },
     status: 'active',
     tags: ['Games', 'Community'],
+    // Verified live download page (HTTP 200, "Lufthansa Connect"), provided by the owner.
+    url: 'https://lufthansa-connect-ptfs.netlify.app/',
   }),
   project(7, 7, {
     slug: 'project-genesis',

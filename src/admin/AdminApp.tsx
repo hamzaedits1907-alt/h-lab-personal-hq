@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState, type FormEvent } from 'react';
+import { DemoBar } from '@/demo';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/AuthContext';
 import { useRepository } from '@/app/RepositoryContext';
@@ -214,6 +215,11 @@ function AdminLayout({ email }: { email: string }) {
         Skip to content
       </a>
       <header className="a-top">
+        {DemoBar && (
+          <Suspense fallback={null}>
+            <DemoBar variant="admin" />
+          </Suspense>
+        )}
         <Link to="/admin" className="a-brand" aria-label="Admin home">
           <BrandMark size={24} />
           <span>{settings?.brandText ?? 'H/LAB'}</span>

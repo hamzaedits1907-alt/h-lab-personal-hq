@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/app/LanguageContext';
 import { useRepository } from '@/app/RepositoryContext';
@@ -6,6 +6,7 @@ import { useSeo } from '@/app/seo';
 import { useSite } from '@/app/SiteContext';
 import { formatCopyright, uiLabel } from '@/content/localize';
 import { LANG_NAMES, isSafeTarget } from '@/content/schema';
+import { DemoBar } from '@/demo';
 import { BlockView, SafeLink } from './blocks';
 import { useVisibleContent } from './content';
 import { ProjectDialog } from './projects';
@@ -291,6 +292,11 @@ export function SitePage() {
       </main>
       <Footer />
       <ProjectDialog />
+      {DemoBar && (
+        <Suspense fallback={null}>
+          <DemoBar variant="site" />
+        </Suspense>
+      )}
     </>
   );
 }

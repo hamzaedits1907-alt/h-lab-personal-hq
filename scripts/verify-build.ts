@@ -27,7 +27,7 @@ for (const f of files.filter((x) => /\.(js|html|css|map)$/.test(x))) {
   const text = readFileSync(f, 'utf8');
   if (f.endsWith('.map')) problems.push(`${f}: source maps must not be published`);
   if (!isDemoBuild) {
-    for (const needle of ['demo-password', 'demo@hlab.local', 'hlab-demo-data', 'VITE_DEMO_MODE']) {
+    for (const needle of ['demo-password', 'demo@hlab.local', 'hlab-demo-data', 'VITE_DEMO_MODE', 'Open demo admin', 'Demo admin.', 'Reset demo']) {
       if (text.includes(needle)) problems.push(`${f}: contains demo-mode marker "${needle}"`);
     }
   }

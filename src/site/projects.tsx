@@ -4,7 +4,8 @@ import { useLanguage } from '@/app/LanguageContext';
 import { paragraphs, statusLabel, uiLabel } from '@/content/localize';
 import { PROJECT_STATUSES, isHttpsUrl, type Project, type ProjectStatus } from '@/content/schema';
 import { useVisibleContent } from './content';
-import { ArrowIcon, CloseIcon, ExternalIcon, MediaImage, PlaceholderArt, Reveal } from './ui';
+import { ProjectCoverArt } from './covers';
+import { ArrowIcon, CloseIcon, ExternalIcon, MediaImage, Reveal } from './ui';
 
 function StatusPill({ status }: { status: ProjectStatus }) {
   const { lang } = useLanguage();
@@ -57,7 +58,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
             mediaId={project.coverMediaId}
             className="card__img"
             sizes="(min-width: 960px) 360px, (min-width: 600px) 45vw, 92vw"
-            fallback={<PlaceholderArt seed={project.slug} />}
+            fallback={<ProjectCoverArt slug={project.slug} />}
           />
         </span>
         <span className="card__body">
@@ -176,7 +177,7 @@ export function ProjectDialog() {
           <CloseIcon />
         </button>
         <div className="modal__cover">
-          <MediaImage mediaId={project.coverMediaId} eager sizes="(min-width: 760px) 720px, 100vw" fallback={<PlaceholderArt seed={project.slug} />} />
+          <MediaImage mediaId={project.coverMediaId} eager sizes="(min-width: 760px) 720px, 100vw" fallback={<ProjectCoverArt slug={project.slug} />} />
         </div>
         <div className="modal__body">
           <StatusPill status={project.status} />

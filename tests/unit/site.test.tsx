@@ -14,7 +14,7 @@ describe('public site renders database records', () => {
       expect(screen.getByRole('link', { name: new RegExp(name) })).toBeInTheDocument();
     }
     expect(screen.getByRole('heading', { name: 'Currently exploring' })).toBeInTheDocument();
-    expect(document.title).toBe('H/LAB — Personal Project HQ');
+    await waitFor(() => expect(document.title).toBe('H/LAB — Personal Project HQ'));
   });
 
   it('renders what is stored, not what is in the starter file', async () => {

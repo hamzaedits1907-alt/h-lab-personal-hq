@@ -70,7 +70,7 @@ describe('projects', () => {
     await expect(repo.updateProject(ids.genius, { url: 'javascript:alert(1)' })).rejects.toBeInstanceOf(AppError);
     await expect(repo.updateProject(ids.genius, { tags: Array.from({ length: 13 }, (_, i) => `t${i}`) })).rejects.toMatchObject({ code: 'validation' });
     const site = await repo.loadSite();
-    expect(site.projects.find((p) => p.id === ids.genius)?.url).toBeNull();
+    expect(site.projects.find((p) => p.id === ids.genius)?.url).toBe('https://project-genius.netlify.app/'); // unchanged
   });
 
   it('reports field-level errors', async () => {

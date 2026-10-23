@@ -40,6 +40,19 @@ describe('migration 0004: project source-code link', () => {
       expect(after.rows.every((r) => r.repo_url === null)).toBe(true);
     });
 
+    it('sets the verified live links for two starter projects, only where none exists', async () => {
+      const urls = await db.query<{ title: string; url: string | null }>(`select title, url from public.projects where url is not null order by position`);
+      expect(urls.rows).toEqual([
+        { title: 'Project Genius', url: 'https://project-genius.netlify.app/' },
+        { title: 'Lufthansa Launcher', url: 'https://lufthansa-connect-ptfs.netlify.app/' },
+      ]);
+      // an owner-set link is never replaced
+      await db.exec(`update public.projects set url = 'https://mine.example/' where title = 'Project Genius'`);
+      await db.exec(migration());
+      const g = await db.query<{ url: string }>(`select url from public.projects where title = 'Project Genius'`);
+      expect(g.rows[0]?.url).toBe('https://mine.example/');
+    });
+
     it('is idempotent', async () => {
       await db.exec(migration());
       await db.exec(migration());

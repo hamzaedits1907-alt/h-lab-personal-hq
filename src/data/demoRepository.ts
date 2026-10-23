@@ -1,4 +1,5 @@
 import {
+  type BlockContentMap,
   mediaAltSchema,
   projectInputSchema,
   settingsInputSchema,
@@ -14,6 +15,7 @@ import {
   type SiteData,
   type SiteSettings,
 } from '@/content/schema';
+import { LEGACY_ABOUT_BODY, LEGACY_VISIT_LABEL, sameLocalized } from '@/content/legacy';
 import { seedBlocks, seedProjects, seedSettings } from '@/content/seed';
 import { DEMO_EMAIL, DEMO_PASSWORD } from './demoCredentials';
 import { AppError, MediaInUseError } from './errors';
@@ -56,13 +58,48 @@ export class MemoryStorage implements StorageLike {
   }
 }
 
-interface State {
+export interface State {
   settings: SiteSettings;
   blocks: ContentBlock[];
   projects: Project[];
   media: MediaItem[];
   changes: ChangeEntry[];
   nextChangeId: number;
+  /** Data-format / starter-content generation. Absent on data saved by the first release. */
+  version?: number;
+}
+
+/** Bump when the starter content or data shape changes. See `migrate`. */
+export const DEMO_DATA_VERSION = 2;
+
+/**
+ * Brings data saved by an older release up to date WITHOUT overwriting the owner's edits:
+ * starter text is replaced only where it is still exactly the old starter text.
+ * (Same rules as supabase/migrations/0004_project_repo_url.sql.)
+ */
+export function migrateDemoState(state: State): { state: State; changed: boolean } {
+  if ((state.version ?? 1) >= DEMO_DATA_VERSION) return { state, changed: false };
+
+  // v1 -> v2
+  state.projects = state.projects.map((p) => ({ ...p, repoUrl: p.repoUrl ?? null }));
+  const aboutSeed = seedBlocks.find((b) => b.type === 'about')?.content as BlockContentMap['about'] | undefined;
+  for (const b of state.blocks) {
+    if (b.type === 'about' && aboutSeed && sameLocalized(b.content.body, LEGACY_ABOUT_BODY)) {
+      b.content = { ...b.content, body: structuredClone(aboutSeed.body), interests: structuredClone(aboutSeed.interests) } as typeof b.content;
+    }
+  }
+  const labels = state.settings.ui.labels;
+  const seedLabels = seedSettings.ui.labels;
+  if (sameLocalized(labels.visitProject, LEGACY_VISIT_LABEL)) labels.visitProject = structuredClone(seedLabels.visitProject);
+  labels.sourceCode ??= structuredClone(seedLabels.sourceCode);
+  labels.newTab ??= structuredClone(seedLabels.newTab);
+  // Verified starter live links, only for starter projects that have none yet.
+  for (const seed of seedProjects) {
+    const p = state.projects.find((x) => x.id === seed.id);
+    if (p && !p.url && seed.url) p.url = seed.url;
+  }
+  state.version = DEMO_DATA_VERSION;
+  return { state, changed: true };
 }
 
 const DATA_KEY = 'hlab-demo-data-v1';
@@ -87,6 +124,7 @@ function seedState(): State {
     media: [],
     changes: [],
     nextChangeId: 1,
+    version: DEMO_DATA_VERSION,
   };
 }
 
@@ -114,9 +152,8 @@ export class DemoRepository implements Repository {
     try {
       const raw = this.storage.getItem(DATA_KEY);
       if (raw) {
-        const state = JSON.parse(raw) as State;
-        // Records saved before `repoUrl` existed stay valid.
-        state.projects = state.projects.map((p) => ({ ...p, repoUrl: p.repoUrl ?? null }));
+        const { state, changed } = migrateDemoState(JSON.parse(raw) as State);
+        if (changed) this.save(state);
         return state;
       }
     } catch {

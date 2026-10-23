@@ -17,6 +17,7 @@
   min-height: 100dvh;
 }
 .a-top {
+  flex-wrap: wrap;
   position: sticky;
   top: 0;
   z-index: 40;
@@ -1047,4 +1048,9 @@ textarea.a-input {
   width: min(100%, 15rem);
   height: auto;
   aspect-ratio: 16 / 10;
+}
+
+/* the demo strip adds a row to the sticky header */
+body:has(.demo-strip) .a-nav {
+  top: 6.3rem;
 }

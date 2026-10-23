@@ -49,3 +49,9 @@ update public.site_settings
          true
        )
  where id = 1;
+
+-- Verified live links for two starter projects (only where no link has been set).
+update public.projects set url = 'https://project-genius.netlify.app/'
+ where id = '00000000-0000-4000-8000-000000000201' and url is null;
+update public.projects set url = 'https://lufthansa-connect-ptfs.netlify.app/'
+ where id = '00000000-0000-4000-8000-000000000206' and url is null;

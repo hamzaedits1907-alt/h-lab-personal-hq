@@ -126,11 +126,12 @@ describe('project editing', () => {
     const u = user();
     renderAt(`/admin/projects/${ids.genius}`, repo);
     const url = await screen.findByLabelText(/Project link/);
+    await u.clear(url);
     await u.type(url, 'http://insecure.example');
     await u.click(screen.getByRole('button', { name: 'Save project' }));
     expect(await screen.findByText('Must be a valid https:// address')).toBeInTheDocument();
     expect(url).toHaveAttribute('aria-invalid', 'true');
-    expect((await repo.loadSite()).projects.find((p) => p.id === ids.genius)?.url).toBeNull();
+    expect((await repo.loadSite()).projects.find((p) => p.id === ids.genius)?.url).toBe('https://project-genius.netlify.app/');
     expect(screen.queryByText('Project saved')).not.toBeInTheDocument();
   });
 
