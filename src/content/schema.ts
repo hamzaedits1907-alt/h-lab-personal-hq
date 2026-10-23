@@ -108,6 +108,8 @@ export const projectInputSchema = z.object({
   status: z.enum(PROJECT_STATUSES),
   tags: tagsSchema,
   url: httpsUrlSchema.nullable(),
+  /** Optional source-code link (GitHub, GitLab…). Independent of `url`; either, both or neither may exist. */
+  repoUrl: httpsUrlSchema.nullable().default(null),
   coverMediaId: uuidSchema.nullable(),
   isVisible: z.boolean(),
 });
@@ -240,6 +242,8 @@ export function safeParseBlockContent<T extends BlockType>(type: T, content: unk
 export const UI_LABEL_KEYS = [
   'viewProject',
   'visitProject',
+  'sourceCode',
+  'newTab',
   'close',
   'allProjects',
   'skipToContent',

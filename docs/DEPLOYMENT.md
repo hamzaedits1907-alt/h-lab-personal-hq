@@ -16,12 +16,18 @@ Requires Node ≥ 20 (`.nvmrc` pins 22).
 
 ## 1. Supabase
 
-1. Create a project at supabase.com. Note the **Project URL** and the **anon / publishable** key (*Project Settings → API*). Do **not** use or copy the service-role / secret key anywhere.
+> **Use a dedicated Supabase project for H/LAB. Do not share one with another application.**
+> The migrations create generically named objects in the `public` schema (`projects`, `media`, `admins`, `site_settings`, `is_admin()`…). In a shared project those would collide with the other app's objects, and `is_admin()` in particular is commonly used by other apps' security policies. Sharing also means sharing Supabase Auth: the "disable sign-ups" step below would block that other app's new users too.
+> To protect against accidents, `0001` aborts (changing nothing) if any of these names already exist, and `0004` refuses to touch a `projects` table that isn't H/LAB's. A free Supabase account can hold two projects.
+
+1. Create a **new** project at supabase.com. Note the **Project URL** and the **anon / publishable** key (*Project Settings → API*). Do **not** use or copy the service-role / secret key anywhere; H/LAB never needs it.
 2. Apply the migrations **in order**. Either:
-   - *SQL Editor*: paste and run `supabase/migrations/0001_core_schema.sql`, then `0002_storage.sql`, then `0003_seed_starter_content.sql`; or
+   - *SQL Editor*: paste and run `supabase/migrations/0001_core_schema.sql`, then `0002_storage.sql`, `0003_seed_starter_content.sql` and `0004_project_repo_url.sql`; or
    - Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`.
 
    `0003` only inserts into empty tables, so re-running it never overwrites edits. If you change `src/content/seed.ts`, regenerate it with `npm run seed:sql`.
+
+   **`0004` (project source-code link + personal About copy)** adds a nullable `repo_url` column, so existing projects keep working unchanged. It replaces the starter About text and the "Visit project" label *only* where they still match the original starter text exactly; anything you edited is left alone. Apply it **before** deploying a build that saves the source-code link (otherwise saving a project shows "database is missing the latest migration"). It is safe to run more than once.
 3. Check *Storage*: a public bucket **site-media** exists (5 MB, images only).
 4. Create the first admin: ADMIN_GUIDE.md §1 (disable sign-ups, create user, insert into `public.admins`).
 

@@ -28,6 +28,8 @@ One page assembled from **blocks** the owner controls (order, visibility, conten
 
 Header (brand mark + logo text, navigation, language switch, mobile menu) and footer (brand, text, links, copyright) are driven by settings.
 
+Each project may have a cover image, a live **Open project** link and a separate **Source code** link; any combination, including none. Clicking a card opens a detail dialog (cover, summary, status, tags, link buttons) that works the same on desktop and mobile.
+
 Projects have a status — **active, experiment, paused, completed** — shown as a labelled pill and usable as a filter.
 
 ### Seeded starter content (editable, not hardcoded in UI)

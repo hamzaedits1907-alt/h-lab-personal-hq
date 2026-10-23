@@ -18,6 +18,7 @@ export function toInput(p: Project): ProjectInput {
     status: p.status,
     tags: p.tags,
     url: p.url,
+    repoUrl: p.repoUrl,
     coverMediaId: p.coverMediaId,
     isVisible: p.isVisible,
   };

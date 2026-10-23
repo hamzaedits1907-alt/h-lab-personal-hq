@@ -26,6 +26,7 @@ describe('migrations and seed', () => {
       '0001_core_schema.sql',
       '0002_storage.sql',
       '0003_seed_starter_content.sql',
+      '0004_project_repo_url.sql',
     ]);
     const s = await db.query<{ n: number }>('select count(*)::int n from public.projects');
     expect(s.rows[0]?.n).toBe(7);

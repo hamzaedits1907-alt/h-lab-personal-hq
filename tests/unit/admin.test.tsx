@@ -125,7 +125,7 @@ describe('project editing', () => {
     const { repo } = await makeRepo({ signedIn: true });
     const u = user();
     renderAt(`/admin/projects/${ids.genius}`, repo);
-    const url = await screen.findByLabelText(/External link/);
+    const url = await screen.findByLabelText(/Project link/);
     await u.type(url, 'http://insecure.example');
     await u.click(screen.getByRole('button', { name: 'Save project' }));
     expect(await screen.findByText('Must be a valid https:// address')).toBeInTheDocument();

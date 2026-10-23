@@ -56,11 +56,13 @@ export function migrationFiles(): string[] {
     .sort();
 }
 
-export async function createDb(opts: { seed?: boolean } = {}): Promise<PGlite> {
+export async function createDb(opts: { seed?: boolean; skip?: string[]; before?: string } = {}): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(SUPABASE_STUBS);
+  if (opts.before) await db.exec(opts.before); // e.g. objects that belong to ANOTHER application
   for (const file of migrationFiles()) {
     if (file.includes('seed') && opts.seed === false) continue;
+    if (opts.skip?.some((s) => file.startsWith(s))) continue;
     await db.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
   }
   return db;

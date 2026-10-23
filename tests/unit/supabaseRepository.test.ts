@@ -122,7 +122,7 @@ describe('SupabaseRepository writes never report success on failure', () => {
   it('validates before sending anything to the database', async () => {
     const { client, calls } = fakeClient({});
     await expect(new SupabaseRepository(client).saveSettings({ ...seedSettings, accent: 'x' as never })).rejects.toMatchObject({ code: 'validation' });
-    await expect(new SupabaseRepository(client).createProject({ slug: 'A B', title: '', summary: {}, description: {}, status: 'active', tags: [], url: null, coverMediaId: null, isVisible: true })).rejects.toBeInstanceOf(AppError);
+    await expect(new SupabaseRepository(client).createProject({ slug: 'A B', title: '', summary: {}, description: {}, status: 'active', tags: [], url: null, repoUrl: null, coverMediaId: null, isVisible: true })).rejects.toBeInstanceOf(AppError);
     expect(calls.filter((c) => /update|insert/.test(c))).toEqual([]);
   });
 

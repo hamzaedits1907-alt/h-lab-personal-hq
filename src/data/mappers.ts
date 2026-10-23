@@ -62,6 +62,8 @@ export interface ProjectRow {
   status: string;
   tags: string[] | null;
   url: string | null;
+  /** Added by migration 0004; absent on databases that have not applied it yet. */
+  repo_url?: string | null;
   cover_media_id: string | null;
   position: number;
   is_visible: boolean;
@@ -174,6 +176,7 @@ export function rowToProject(r: ProjectRow): Project {
     status: oneOf<ProjectStatus>(['active', 'experiment', 'paused', 'completed'], r.status, 'active'),
     tags: r.tags ?? [],
     url: r.url,
+    repoUrl: r.repo_url ?? null,
     coverMediaId: r.cover_media_id,
     isVisible: r.is_visible,
     position: r.position,
@@ -191,6 +194,7 @@ export function projectToRow(p: Partial<Omit<Project, 'id' | 'position' | 'creat
   if (p.status !== undefined) row.status = p.status;
   if (p.tags !== undefined) row.tags = p.tags;
   if (p.url !== undefined) row.url = p.url;
+  if (p.repoUrl !== undefined) row.repo_url = p.repoUrl;
   if (p.coverMediaId !== undefined) row.cover_media_id = p.coverMediaId;
   if (p.isVisible !== undefined) row.is_visible = p.isVisible;
   return row;

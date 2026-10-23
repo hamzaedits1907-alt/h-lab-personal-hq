@@ -3,6 +3,34 @@
 -- Everything here is least-privilege: anon/authenticated start with NO table
 -- privileges and are granted only what the app needs. Row-Level Security is the
 -- real gate; the admin UI merely reflects it.
+--
+-- USE A DEDICATED SUPABASE PROJECT. This file creates generically named objects in
+-- the `public` schema (projects, media, admins, site_settings, is_admin()...).
+-- The guard below aborts, before changing anything, if any of those names already
+-- exist, so it can never overwrite or alter another application's tables/functions.
+
+do $guard$
+begin
+  if exists (
+       select 1
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public'
+          and c.relkind in ('r', 'p', 'v', 'm', 'f')
+          and c.relname in ('admins', 'media', 'site_settings', 'content_blocks', 'projects', 'change_log')
+     )
+     or exists (
+       select 1
+         from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.proname in ('is_admin', 'set_updated_at', 'text_array_ok', 'block_content_valid', 'log_change',
+                            'reorder_projects', 'reorder_blocks', 'media_usage', 'delete_media')
+     )
+  then
+    raise exception 'H/LAB migration aborted: this database already has tables or functions with the same names in the public schema (another project, or this migration already ran). Nothing was changed. Use a dedicated Supabase project for H/LAB.'
+      using errcode = '42710';
+  end if;
+end
+$guard$;
 
 -- ---------------------------------------------------------------------------
 -- Helpers

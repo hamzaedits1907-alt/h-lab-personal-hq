@@ -82,7 +82,7 @@ describe('safe rendering of edited text', () => {
     storage.setItem('hlab-demo-data-v1', JSON.stringify(data));
     renderAt('/?project=project-genius', repo);
     await screen.findByRole('dialog');
-    expect(screen.queryByRole('link', { name: /Visit project/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Open project/ })).not.toBeInTheDocument();
     expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
   });
 
@@ -91,7 +91,7 @@ describe('safe rendering of edited text', () => {
     await repo.updateProject(ids.genius, { url: 'https://example.com/genius' });
     await repo.signOut();
     renderAt('/?project=project-genius', repo);
-    const link = await screen.findByRole('link', { name: /Visit project/ });
+    const link = await screen.findByRole('link', { name: /Open project/ });
     expect(link).toHaveAttribute('href', 'https://example.com/genius');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link.getAttribute('rel')).toContain('noopener');

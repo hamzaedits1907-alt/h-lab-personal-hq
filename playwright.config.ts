@@ -6,6 +6,7 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: true,
+  workers: 3, // each worker is a full Chrome; more can exhaust memory on small machines
   reporter: [['list']],
   use: {
     baseURL: 'http://localhost:4199',

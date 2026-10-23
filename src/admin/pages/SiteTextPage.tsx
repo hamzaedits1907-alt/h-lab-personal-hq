@@ -6,7 +6,9 @@ import { useSettingsSection } from '../settingsForm';
 
 const LABEL_NAMES: Record<(typeof UI_LABEL_KEYS)[number], string> = {
   viewProject: 'Card link: “View project”',
-  visitProject: 'Window button: “Visit project”',
+  visitProject: 'Window button: “Open project”',
+  sourceCode: 'Window button: “Source code”',
+  newTab: 'Screen-reader note: opens in a new tab',
   close: 'Close button',
   allProjects: 'Filter: “All”',
   skipToContent: 'Skip link (screen readers)',

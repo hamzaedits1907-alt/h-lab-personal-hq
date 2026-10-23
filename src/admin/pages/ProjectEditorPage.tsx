@@ -17,6 +17,7 @@ interface Form {
   description: LocalizedText;
   tags: string[];
   url: string;
+  repoUrl: string;
   coverMediaId: string | null;
   coverAlt: LocalizedText;
   isVisible: boolean;
@@ -30,6 +31,7 @@ const BLANK: Form = {
   description: {},
   tags: [],
   url: '',
+  repoUrl: '',
   coverMediaId: null,
   coverAlt: {},
   isVisible: false,
@@ -70,6 +72,7 @@ function ProjectForm({ project }: { project: Project | null }) {
           description: p.description,
           tags: p.tags,
           url: p.url ?? '',
+          repoUrl: p.repoUrl ?? '',
           coverMediaId: p.coverMediaId,
           coverAlt: (p.coverMediaId && data.media[p.coverMediaId]?.alt) || {},
           isVisible: p.isVisible,
@@ -104,6 +107,7 @@ function ProjectForm({ project }: { project: Project | null }) {
         description: f.description,
         tags: f.tags,
         url: f.url.trim() === '' ? null : f.url.trim(),
+        repoUrl: f.repoUrl.trim() === '' ? null : f.repoUrl.trim(),
         coverMediaId: f.coverMediaId,
         isVisible: f.isVisible,
       };
@@ -113,7 +117,7 @@ function ProjectForm({ project }: { project: Project | null }) {
         if (JSON.stringify(current) !== JSON.stringify(f.coverAlt)) await repo.updateMediaAlt(f.coverMediaId, f.coverAlt);
       }
       await reload();
-      draft.commit({ ...f, slug: saved.slug, title: saved.title, tags: saved.tags, url: saved.url ?? '' });
+      draft.commit({ ...f, slug: saved.slug, title: saved.title, tags: saved.tags, url: saved.url ?? '', repoUrl: saved.repoUrl ?? '' });
       if (!project) setNavTo(`/admin/projects/${saved.id}`);
     }, project ? 'Project saved' : 'Project created');
   };
@@ -146,6 +150,7 @@ function ProjectForm({ project }: { project: Project | null }) {
         description: project.description,
         tags: project.tags,
         url: project.url,
+        repoUrl: project.repoUrl,
         coverMediaId: project.coverMediaId,
         isVisible: false,
       });
@@ -230,17 +235,35 @@ function ProjectForm({ project }: { project: Project | null }) {
           <TagInput label="Tags" name="tags" value={f.tags} onChange={(tags) => draft.update({ tags })} />
         </Panel>
 
-        <Panel title="Link and image">
+        <Panel title="Links" hint="Both are optional. Each button only appears on the site when its link is filled in.">
           <TextField
-            label="External link (optional)"
+            label="Project link (live site or app)"
             name="url"
             type="url"
             value={f.url}
             placeholder="https://"
-            hint="Must start with https://"
+            hint="Shown as “Open project”. Must start with https://"
             onChange={(url) => draft.update({ url })}
           />
-          <ImageField label="Cover image" value={f.coverMediaId} onChange={setCover} hint="Without a cover, a generated geometric image is shown." />
+          <TextField
+            label="Source code link (optional)"
+            name="repoUrl"
+            type="url"
+            value={f.repoUrl}
+            placeholder="https://github.com/…"
+            hint="Shown as “Source code”. Must start with https://"
+            onChange={(repoUrl) => draft.update({ repoUrl })}
+          />
+        </Panel>
+
+        <Panel title="Cover image">
+          <ImageField
+            large
+            label="Cover image"
+            value={f.coverMediaId}
+            onChange={setCover}
+            hint="Choose one from the media library or upload a new one. The preview shows what you picked; it is attached to the project when you save. Without a cover, a generated geometric image is shown."
+          />
           {f.coverMediaId && (
             <LocalizedField
               label="Cover image alt text"

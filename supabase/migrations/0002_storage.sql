@@ -11,10 +11,8 @@ values (
   5242880, -- 5 MB
   array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
 )
-on conflict (id) do update
-  set public = excluded.public,
-      file_size_limit = excluded.file_size_limit,
-      allowed_mime_types = excluded.allowed_mime_types;
+-- Never modify an existing bucket of the same name (it could belong to another project).
+on conflict (id) do nothing;
 
 create policy "admins read site-media objects"
   on storage.objects for select to authenticated

@@ -50,7 +50,9 @@ export const seedSettings: SettingsInput = {
   ui: {
     labels: {
       viewProject: { en: 'View project', tr: 'Projeyi gör' },
-      visitProject: { en: 'Visit project', tr: 'Projeye git' },
+      visitProject: { en: 'Open project', tr: 'Projeyi aç' },
+      sourceCode: { en: 'Source code', tr: 'Kaynak kodu' },
+      newTab: { en: 'opens in a new tab', tr: 'yeni sekmede açılır' },
       close: { en: 'Close', tr: 'Kapat' },
       allProjects: { en: 'All', tr: 'Tümü' },
       skipToContent: { en: 'Skip to content', tr: 'İçeriğe geç' },
@@ -132,15 +134,15 @@ export const seedBlocks: SeedBlock[] = [
     content: {
       heading: { en: 'About', tr: 'Hakkında' },
       body: {
-        en: 'H/LAB is where I keep my personal projects: AI tools, desktop software, games and simulations. Everything here is a work in progress.',
-        tr: 'H/LAB, kişisel projelerimi topladığım yer: yapay zekâ araçları, masaüstü yazılımları, oyunlar ve simülasyonlar. Buradaki her şey yapım aşamasında.',
+        en: "I'm a curious builder who likes turning ambitious ideas into real software. I explore AI assistants, desktop apps, browsers, creative tools and simulation worlds. I enjoy figuring out how things work, testing ideas and improving each version until it becomes something useful.\n\nH/LAB is where I bring those experiments together.",
+        tr: 'Yeni fikirleri çalışan ürünlere dönüştürmeyi seven meraklı bir geliştiriciyim. Yapay zekâ asistanları, masaüstü uygulamaları, tarayıcılar, yaratıcı araçlar ve simülasyon dünyaları üzerine denemeler yapıyorum. Benim için en eğlenceli kısım yalnızca fikir bulmak değil; onu geliştirmek, test etmek ve her sürümde daha iyi hale getirmektir.\n\nH/LAB, bu denemeleri bir araya getirdiğim yer.',
       },
       interests: [
-        { en: 'AI tools', tr: 'Yapay zekâ araçları' },
-        { en: 'Desktop software', tr: 'Masaüstü yazılımları' },
+        { en: 'AI assistants', tr: 'Yapay zekâ asistanları' },
+        { en: 'Desktop apps', tr: 'Masaüstü uygulamaları' },
         { en: 'Browsers', tr: 'Tarayıcılar' },
-        { en: 'Games', tr: 'Oyunlar' },
-        { en: 'Simulation', tr: 'Simülasyon' },
+        { en: 'Creative tools', tr: 'Yaratıcı araçlar' },
+        { en: 'Simulation worlds', tr: 'Simülasyon dünyaları' },
       ],
       showProfileImage: true,
     },
@@ -190,10 +192,10 @@ export const seedBlocks: SeedBlock[] = [
 const project = (
   n: number,
   position: number,
-  p: Omit<ProjectInput, 'url' | 'coverMediaId' | 'isVisible' | 'description'> & {
+  p: Omit<ProjectInput, 'url' | 'repoUrl' | 'coverMediaId' | 'isVisible' | 'description'> & {
     description: ProjectInput['description'];
   },
-): SeedProject => ({ id: id(200 + n), position, url: null, coverMediaId: null, isVisible: true, ...p });
+): SeedProject => ({ id: id(200 + n), position, url: null, repoUrl: null, coverMediaId: null, isVisible: true, ...p });
 
 export const seedProjects: SeedProject[] = [
   project(1, 1, {

@@ -13,6 +13,7 @@ const newProject = (slug: string) => ({
   status: 'experiment' as const,
   tags: ['x'],
   url: null,
+  repoUrl: null,
   coverMediaId: null,
   isVisible: true,
 });

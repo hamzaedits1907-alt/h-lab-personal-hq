@@ -43,7 +43,7 @@ Stored jsonb is re-validated on read. A block whose content no longer matches it
 | `admins` | `user_id` → `auth.users`. Clients can read only their own row; **no** insert/update/delete policy or grant. |
 | `site_settings` | Singleton row (`id = 1`). Identity, contact, `social_links`, `nav`, `footer`, `seo`, `ui` (jsonb), languages, publish flag, appearance enums, profile/OG media FKs. |
 | `content_blocks` | `type` (8 values), unique `anchor`, `admin_label`, `content` jsonb, `position`, `is_visible`. Allowed top-level keys per type are enforced by a `CHECK` function. |
-| `projects` | `slug` unique, `title`, localized `summary`/`description`, `status`, `tags[]`, `url` (https only), `cover_media_id` FK, `position`, `is_visible`. |
+| `projects` | `slug` unique, `title`, localized `summary`/`description`, `status`, `tags[]`, `url` and `repo_url` (https only, both nullable; `repo_url` added by migration 0004), `cover_media_id` FK, `position`, `is_visible`. |
 | `media` | Metadata for files in the `site-media` bucket: path, mime (jpeg/png/webp/avif), size ≤ 5 MB, dimensions, localized `alt`. |
 | `change_log` | Admin-only audit trail written by triggers; capped at ~500 rows. Powers *Recent changes*. |
 

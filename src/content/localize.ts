@@ -30,7 +30,9 @@ export function paragraphs(value: string): string[] {
 /** Last-resort strings so the interface stays usable if a label was cleared. */
 export const FALLBACK_LABELS: Record<UiLabelKey, string> = {
   viewProject: 'View project',
-  visitProject: 'Visit project',
+  visitProject: 'Open project',
+  sourceCode: 'Source code',
+  newTab: 'opens in a new tab',
   close: 'Close',
   allProjects: 'All',
   skipToContent: 'Skip to content',

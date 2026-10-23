@@ -155,7 +155,9 @@ export function ProjectDialog() {
 
   if (!project) return null;
 
-  const hasUrl = project.url && isHttpsUrl(project.url);
+  // Links are re-validated at render time: a bad value in the database never becomes a link.
+  const liveUrl = project.url && isHttpsUrl(project.url) ? project.url : null;
+  const repoUrl = project.repoUrl && isHttpsUrl(project.repoUrl) ? project.repoUrl : null;
   return (
     <dialog
       ref={ref}
@@ -197,9 +199,16 @@ export function ProjectDialog() {
             </ul>
           )}
           <div className="modal__actions">
-            {hasUrl && (
-              <a className="btn btn--primary" href={project.url ?? undefined} target="_blank" rel="noopener noreferrer">
+            {liveUrl && (
+              <a className="btn btn--primary" href={liveUrl} target="_blank" rel="noopener noreferrer">
                 {uiLabel(settings, 'visitProject', lang)} <ExternalIcon />
+                <span className="visually-hidden"> ({uiLabel(settings, 'newTab', lang)})</span>
+              </a>
+            )}
+            {repoUrl && (
+              <a className="btn" href={repoUrl} target="_blank" rel="noopener noreferrer">
+                {uiLabel(settings, 'sourceCode', lang)} <ExternalIcon />
+                <span className="visually-hidden"> ({uiLabel(settings, 'newTab', lang)})</span>
               </a>
             )}
             <button type="button" className="btn" onClick={close}>

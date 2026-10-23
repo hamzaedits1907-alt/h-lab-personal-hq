@@ -30,6 +30,8 @@ Counts and a setup checklist (contact email, links, description, alt text…), p
 
 ### Projects
 - **New project** starts hidden. Fill in title, status, summary, details, tags; add an optional `https://` link; choose a cover image and describe it (alt text).
+- **Links** (both optional): *Project link* (live site or app, shown as **Open project**) and *Source code link* (GitHub etc., shown as **Source code**). Each button appears on the site only when its link is filled in and starts with `https://`; clear a field to remove the button.
+- **Cover image**: *Choose image* opens the media library (pick an existing image or upload a new one). The preview shows what you picked; it is attached when you press **Save project**. *Remove* clears it (the project then shows generated artwork). Always fill in the alt text. Without a cover the project looks fine too.
 - Details are plain text; a blank line starts a new paragraph. Don't paste private notes, keys or internal URLs: the text is public.
 - The **address (slug)** appears in links (`/?project=my-project`). Changing it breaks old links.
 - On the list: change **status** from the dropdown, **show/hide** with the switch, reorder with ↑ ↓, **Duplicate** (creates a hidden copy), **Delete** (asks first).

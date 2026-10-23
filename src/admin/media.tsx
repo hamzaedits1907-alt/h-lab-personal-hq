@@ -217,17 +217,19 @@ export function ImageField({
   value,
   onChange,
   hint,
+  large = false,
 }: {
   label: string;
   value: string | null;
   onChange: (id: string | null) => void;
   hint?: string;
+  large?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="a-field">
       <span className="a-label">{label}</span>
-      <div className="a-imagefield">
+      <div className={`a-imagefield ${large ? 'a-imagefield--large' : ''}`}>
         <ImageRef id={value} />
         <div className="a-imagefield__actions">
           <button type="button" className="a-btn a-btn--small" onClick={() => setOpen(true)}>

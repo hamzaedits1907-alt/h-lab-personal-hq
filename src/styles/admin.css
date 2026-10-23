@@ -1038,3 +1038,13 @@ textarea.a-input {
     flex: 1;
   }
 }
+
+.a-imagefield--large {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.a-imagefield--large .a-thumb {
+  width: min(100%, 15rem);
+  height: auto;
+  aspect-ratio: 16 / 10;
+}

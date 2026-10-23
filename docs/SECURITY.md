@@ -19,6 +19,10 @@ These rules are exercised against the real migrations in `tests/db/policies.test
 - `is_admin()` is `SECURITY DEFINER` with `search_path = ''`, and checks `auth.uid()`.
 - Disable public sign-ups in Supabase anyway. If a stranger did register, they would be an ordinary authenticated user (see table) and the admin route would show "Not authorized".
 
+## Dedicated Supabase project
+
+Run H/LAB in its own Supabase project. Its migrations use generic names in `public` (including `is_admin()`), which another application may already use in its own policies. `0001` aborts without changing anything if those names exist, `0002` never modifies an existing bucket, and `0004` refuses to alter a `projects` table that is not H/LAB's (all covered by `tests/db/isolation.test.ts`). A shared project would also share Auth settings such as sign-up.
+
 ## Secrets
 
 - The browser receives only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the anon/publishable key, which is designed to be public and is limited by RLS).

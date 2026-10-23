@@ -54,6 +54,9 @@ export function toAppError(error: PostgrestError | { message: string; code?: str
     return new AppError('in-use', 'That item is still referenced elsewhere on the site.');
   }
   if (code === '23514') return new AppError('validation', 'The database rejected one of the values. Check the form for errors.');
+  if (code === 'PGRST204' || /repo_url/.test(msg)) {
+    return new AppError('config', 'The database is missing the latest migration (0004_project_repo_url.sql). Apply it, then try again.');
+  }
   if (code === 'PGRST116') {
     return new AppError('unauthorized', `Nothing was saved. The item was not found or you are not allowed to change it.`);
   }

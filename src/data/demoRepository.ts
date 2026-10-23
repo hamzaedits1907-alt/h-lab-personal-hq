@@ -113,7 +113,12 @@ export class DemoRepository implements Repository {
   private load(): State {
     try {
       const raw = this.storage.getItem(DATA_KEY);
-      if (raw) return JSON.parse(raw) as State;
+      if (raw) {
+        const state = JSON.parse(raw) as State;
+        // Records saved before `repoUrl` existed stay valid.
+        state.projects = state.projects.map((p) => ({ ...p, repoUrl: p.repoUrl ?? null }));
+        return state;
+      }
     } catch {
       /* fall through to a fresh seed */
     }
